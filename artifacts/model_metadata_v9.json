@@ -1,0 +1,18 @@
+{
+  "build": "V9.0",
+  "platform": "TNEX-aligned production credit risk and decision intelligence simulation",
+  "calculated_at": "2026-09-24T09:06:28.329231+00:00",
+  "product_models": 3,
+  "models_passing": 2,
+  "portfolio_capacity_vnd": 1000000000000,
+  "recommended_cash_share": 0.5,
+  "recommended_bnpl_share": 0.1,
+  "recommended_business_share": 0.4,
+  "recommended_ecl_vnd": 68982903186.29301,
+  "recommended_contribution_vnd": 78617096813.70699,
+  "recommended_raroc": 0.6551424734475582,
+  "open_findings": 3,
+  "customer_controls_passed": 4,
+  "overall_status": "CONDITIONAL PASS \u2014 SIMULATION",
+  "disclaimer": "Synthetic portfolio only; not an official TNEX model or affiliated implementation."
+}

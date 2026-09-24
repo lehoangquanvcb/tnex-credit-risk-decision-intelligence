@@ -1,0 +1,14 @@
+{
+  "window": "Out-of-time",
+  "start_date": "2025-02-04",
+  "end_date": "2025-05-14",
+  "applications": 2400,
+  "auc": 0.6861848186613017,
+  "gini": 0.3723696373226033,
+  "ks": 0.2947274935203813,
+  "brier": 0.10820914360337476,
+  "mean_pd": 0.1336069657509114,
+  "bad_rate": 0.1325,
+  "model_id": "RCS_PD_4.0",
+  "validation_status": "PASS"
+}

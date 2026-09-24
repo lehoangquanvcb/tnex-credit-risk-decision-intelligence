@@ -1,0 +1,6 @@
+model_id,model,materiality,owner,independent_validator,status,last_validation,next_review,open_findings,deployment,approval_body
+BNPL_PD_2.0,Bnpl application PD,HIGH,Head of Credit Risk Modeling,Model Validation,PASS,2026-09-24,2027-03-31,0,SHADOW,Model Risk Committee
+BUSINESS_LOAN_PD_2.0,Business Loan application PD,HIGH,Head of Credit Risk Modeling,Model Validation,REVIEW,2026-09-24,2027-03-31,1,SHADOW,Model Risk Committee
+CASH_LOAN_PD_2.0,Cash Loan application PD,HIGH,Head of Credit Risk Modeling,Model Validation,PASS,2026-09-24,2027-03-31,0,SHADOW,Model Risk Committee
+FRAUD_GRAPH_1.0,Linked-identity fraud network,HIGH,Fraud Risk,Financial Crime Validation,PASS,2026-09-24,2027-03-31,1,CANARY,Financial Crime Committee
+COLLECTIONS_NBA_1.0,Collections next-best-action,MEDIUM,Collections,Customer Outcomes,PASS,2026-09-24,2027-09-30,0,SHADOW,Customer Committee

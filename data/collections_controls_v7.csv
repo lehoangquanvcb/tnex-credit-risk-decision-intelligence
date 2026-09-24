@@ -1,0 +1,5 @@
+control,population,exceptions,rate,sla,action,status
+Payment posting reconciliation,1840,21,0.01141304347826087,T+1,Suspend reminders until ledger match,PASS
+Reminder suppression,21,0,0.0,Immediate,No collection message on unresolved payment,PASS
+Hardship / complaint routing,63,2,0.031746031746031744,4 hours,Specialist review and vulnerability flag,AMBER
+Promise-to-pay monitoring,214,8,0.037383177570093455,Daily,Re-segment and next-best action,PASS

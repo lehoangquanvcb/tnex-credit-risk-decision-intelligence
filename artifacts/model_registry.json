@@ -1,0 +1,65 @@
+{
+  "production": "RCS_PD_4.0",
+  "versions": [
+    {
+      "version": "RCS_PD_2.0",
+      "artifact": "artifacts/retail_pd_model.joblib",
+      "metrics": {
+        "model_id": "RCS_PD_2.0",
+        "model_type": "Calibrated 12-month application PD",
+        "target": "default_12m",
+        "development_rows": 8000,
+        "holdout_rows": 4000,
+        "oot_rows": 3000,
+        "train_auc": 0.697791866554414,
+        "test_auc": 0.6918657518615251,
+        "oot_auc": 0.7031225296442688,
+        "test_gini": 0.3837315037230502,
+        "test_ks": 0.29971429815915096,
+        "test_brier": 0.10876496899861064,
+        "score_psi_oot": 0.04478107589281671,
+        "test_bad_rate": 0.13425,
+        "test_mean_pd": 0.13344007359964058,
+        "oot_bad_rate": 0.15666666666666668,
+        "oot_mean_pd": 0.146301394695992,
+        "validation_status": "PASS"
+      },
+      "status": "RETIRED"
+    },
+    {
+      "version": "RCS_PD_3.0",
+      "artifact": "artifacts/retail_woe_scorecard.joblib",
+      "metrics": {
+        "auc": 0.6726936687977345,
+        "gini": 0.345387337595469,
+        "ks": 0.25397511656882465,
+        "brier": 0.11065591177023448,
+        "mean_pd": 0.13325037417831714,
+        "bad_rate": 0.13425,
+        "model_id": "RCS_PD_3.0",
+        "validation_status": "PASS"
+      },
+      "status": "RETIRED"
+    },
+    {
+      "version": "RCS_PD_4.0",
+      "artifact": "artifacts/retail_woe_scorecard_v4.joblib",
+      "metrics": {
+        "window": "Out-of-time",
+        "start_date": "2025-02-04",
+        "end_date": "2025-05-14",
+        "applications": 2400,
+        "auc": 0.6861848186613017,
+        "gini": 0.3723696373226033,
+        "ks": 0.2947274935203813,
+        "brier": 0.10820914360337476,
+        "mean_pd": 0.1336069657509114,
+        "bad_rate": 0.1325,
+        "model_id": "RCS_PD_4.0",
+        "validation_status": "PASS"
+      },
+      "status": "VALIDATED"
+    }
+  ],
+  "previous_production": null
+}

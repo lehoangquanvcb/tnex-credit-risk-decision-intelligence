@@ -1,0 +1,20 @@
+{
+  "model_id": "RCS_PD_2.0",
+  "model_type": "Calibrated 12-month application PD",
+  "target": "default_12m",
+  "development_rows": 8000,
+  "holdout_rows": 4000,
+  "oot_rows": 3000,
+  "train_auc": 0.697791866554414,
+  "test_auc": 0.6918657518615251,
+  "oot_auc": 0.7031225296442688,
+  "test_gini": 0.3837315037230502,
+  "test_ks": 0.29971429815915096,
+  "test_brier": 0.10876496899861064,
+  "score_psi_oot": 0.04478107589281671,
+  "test_bad_rate": 0.13425,
+  "test_mean_pd": 0.13344007359964058,
+  "oot_bad_rate": 0.15666666666666668,
+  "oot_mean_pd": 0.146301394695992,
+  "validation_status": "PASS"
+}

@@ -1,0 +1,21 @@
+policy_version: RETAIL_POLICY_2.0_CANDIDATE
+status: ANALYTICAL_CANDIDATE
+proposed_date: 2026-09-24
+approve_pd_max: 0.13
+review_pd_max: 0.17
+maximum_dti: 0.65
+minimum_income: 5000000
+maximum_tenor: 36
+lgd: 0.65
+ccf: 1.00
+funding_cost: 0.07
+operating_cost: 350000
+economic_capital_rate: 0.10
+approval_conditions:
+  - independent_validation_on_bank_data
+  - credit_committee_approval
+  - controlled_pilot
+risk_bands:
+  A: {pd_max: 0.05, annual_rate: 0.16, income_multiple: 6.0}
+  B: {pd_max: 0.10, annual_rate: 0.18, income_multiple: 5.0}
+  C: {pd_max: 0.17, annual_rate: 0.22, income_multiple: 3.5}

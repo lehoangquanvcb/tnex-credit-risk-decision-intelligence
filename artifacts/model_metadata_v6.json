@@ -1,0 +1,14 @@
+{
+  "build": "V6.0",
+  "model_id": "RCS_PD_4.0",
+  "calculated_at": "2026-09-24T07:15:20.632316+00:00",
+  "monitoring_months": 17,
+  "mature_months": 4,
+  "lgd_status": "PASS",
+  "ead_status": "PASS",
+  "weighted_ecl": 16742481517.980267,
+  "stage_2_3_share": 0.2775,
+  "rollout_status": "ROLLED BACK SAFELY",
+  "rollback_controls_passed": 5,
+  "overall_status": "CONDITIONAL PASS"
+}

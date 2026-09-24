@@ -1,0 +1,16 @@
+{
+  "build": "V8.0",
+  "platform": "TNEX-aligned real-time digital lending and profitability simulation",
+  "calculated_at": "2026-09-24T08:16:01.370099+00:00",
+  "live_products": 3,
+  "product_models": 3,
+  "fraud_clusters": 13,
+  "recommended_credit_cutoff": 0.12,
+  "recommended_fraud_cutoff": 0.3,
+  "recommended_approval_rate": 0.75,
+  "recommended_contribution_vnd": 6422416427.439102,
+  "recommended_raroc": 1.077471656944402,
+  "payment_contact_suppression_pass": true,
+  "overall_status": "PASS \u2014 SIMULATION",
+  "disclaimer": "Synthetic portfolio only; not an official TNEX model or affiliated implementation."
+}

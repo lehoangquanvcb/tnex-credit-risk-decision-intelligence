@@ -1,0 +1,15 @@
+policy_version: RETAIL_POLICY_1.0
+effective_date: 2026-09-23
+approve_pd_max: 0.10
+review_pd_max: 0.18
+maximum_dti: 0.65
+minimum_income: 5000000
+maximum_tenor: 36
+lgd: 0.65
+funding_cost: 0.07
+operating_cost: 350000
+economic_capital_floor: 0.04
+risk_bands:
+  A: {pd_max: 0.05, annual_rate: 0.16, income_multiple: 6.0}
+  B: {pd_max: 0.10, annual_rate: 0.18, income_multiple: 5.0}
+  C: {pd_max: 0.18, annual_rate: 0.22, income_multiple: 3.5}

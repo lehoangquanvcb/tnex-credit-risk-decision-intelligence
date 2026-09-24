@@ -1,0 +1,18 @@
+{
+  "build": "V5.0",
+  "model_id": "RCS_PD_4.0",
+  "candidate_policy_version": "RETAIL_POLICY_2.0_CANDIDATE",
+  "calculated_at": "2026-09-24T06:49:20.404851+00:00",
+  "walk_forward_folds": 4,
+  "champion_mean_auc": 0.6786611211719855,
+  "challenger_mean_auc": 0.6693159031999618,
+  "challenger_auc_uplift": -0.0093452179720237,
+  "challenger_decision": "RETAIN CHAMPION",
+  "recommended_approve_pd_max": 0.13,
+  "recommended_review_pd_max": 0.17,
+  "recommended_approval_rate": 0.5745833333333333,
+  "recommended_bad_rate": 0.0775924583031182,
+  "recommended_expected_profit": 8782580131.857252,
+  "recommended_raroc": 1.2626257823086358,
+  "status": "PASS"
+}

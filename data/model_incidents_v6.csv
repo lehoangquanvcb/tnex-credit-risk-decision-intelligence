@@ -1,0 +1,5 @@
+incident_id,signal,observed,amber_threshold,red_threshold,severity,owner,action,sla_hours,status
+INC-2026-001,API p95 latency,148.0,75.0,120.0,HIGH,Platform Engineering,Rollback V6 service image,2,CLOSED
+INC-2026-002,Decision mismatch rate,0.027,0.005,0.01,CRITICAL,Model Owner,Freeze rollout and reconcile policy version,1,CLOSED
+INC-2026-003,Bureau-score missing rate,0.062,0.02,0.05,HIGH,Data Owner,Activate input fallback and repair feed,4,MONITORING
+INC-2026-004,Score PSI,0.281,0.1,0.25,HIGH,Model Monitoring,Perform segment review and recalibration assessment,24,OPEN

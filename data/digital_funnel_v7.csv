@@ -1,0 +1,7 @@
+stage,customers,conversion_from_prior,conversion_from_start
+Application started,2400,1.0,1.0
+Identity verified,2184,0.91,0.91
+Application submitted,1965,0.8997252747252747,0.81875
+Decision rendered,1965,1.0,0.81875
+Approved,1428,0.7267175572519083,0.595
+Disbursed / activated,1199,0.8396358543417367,0.4995833333333333
