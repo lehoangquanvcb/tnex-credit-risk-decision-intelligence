@@ -121,10 +121,10 @@ with tab18:
     section=st.radio("V8 module",["Live decision","Risk–profit optimizer","Fraud network","Collections NBA","Command center"],horizontal=True)
     if section=="Live decision":
         c1,c2,c3=st.columns(3)
-        product=c1.selectbox("Product",["CASH_LOAN","BNPL","BUSINESS_LOAN"]); income=c1.number_input("Monthly income (VND)",3_000_000,500_000_000,20_000_000,step=1_000_000); requested=c1.number_input("Requested amount (VND)",1_000_000,500_000_000,30_000_000,step=1_000_000)
-        bureau=c2.number_input("Bureau score",300,850,650); dti=c2.slider("Existing DTI",0.0,.95,.35,.01); identity=c2.slider("Identity match",0.0,1.0,.94,.01)
-        velocity=c3.number_input("Applications in 24 hours",0,20,0); shared=c3.number_input("Linked device accounts",0,20,0); txn=c3.number_input("Transactions in 90 days",0,500,52)
-        if st.button("Run digital decision",type="primary"):
+        product=c1.selectbox("Product",["CASH_LOAN","BNPL","BUSINESS_LOAN"],key="v8_product"); income=c1.number_input("Monthly income (VND)",3_000_000,500_000_000,20_000_000,step=1_000_000,key="v8_income"); requested=c1.number_input("Requested amount (VND)",1_000_000,500_000_000,30_000_000,step=1_000_000,key="v8_requested")
+        bureau=c2.number_input("Bureau score",300,850,650,key="v8_bureau"); dti=c2.slider("Existing DTI",0.0,.95,.35,.01,key="v8_dti"); identity=c2.slider("Identity match",0.0,1.0,.94,.01,key="v8_identity")
+        velocity=c3.number_input("Applications in 24 hours",0,20,0,key="v8_velocity"); shared=c3.number_input("Linked device accounts",0,20,0,key="v8_shared"); txn=c3.number_input("Transactions in 90 days",0,500,52,key="v8_txn")
+        if st.button("Run digital decision",type="primary",key="v8_run_decision"):
             app={"product":product,"age":35,"monthly_income":income,"employment_months":60,"bureau_score":bureau,"existing_dti":dti,"requested_amount":requested,"tenor_months":12,"inquiries_6m":1,"employment_type":"Salaried","home_ownership":"Rented","channel":"Mobile","identity_match_score":identity,"device_age_days":180,"application_velocity_24h":velocity,"failed_txn_rate":.01,"transaction_count_90d":txn,"income_regularly":1,"prior_on_time_ratio":.95,"sales_monthly":income*4 if product=="BUSINESS_LOAN" else 0,"shared_device_accounts":shared,"shared_payout_accounts":0}
             result=live_decision(app,model); a,b,c,d=st.columns(4);a.metric("Decision",result["decision"]);b.metric("Product PD",f'{result["product_pd"]:.2%}');c.metric("Fraud score",f'{result["fraud_score"]:.2%}');d.metric("Approved limit",f'VND {result["approved_limit_vnd"]:,.0f}');st.write("**Reason codes:** "+"; ".join(result["reason_codes"]));st.json(result)
     elif section=="Risk–profit optimizer":
