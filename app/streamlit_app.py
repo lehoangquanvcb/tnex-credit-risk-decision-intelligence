@@ -17,8 +17,12 @@ model = joblib.load(ROOT / "artifacts/retail_woe_scorecard_v4.joblib")
 meta = json.loads((ROOT / "artifacts/model_metadata_v4.json").read_text())
 payload=json.loads((ROOT/"reports/validation_payload.json").read_text())
 
-tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13,tab14,tab15,tab16,tab17,tab18,tab19=st.tabs(["Application scoring","Model validation","Strategy simulator","Profitability","Stress testing","Walk-forward","Production monitoring","IFRS 9 ECL","Deployment controls","Fairness","Behavioural EWS","Overrides","Governance","TNEX products","Real-time decisioning","Digital funnel","Lifecycle controls","TNEX V8","TNEX V9"])
-with tab1:
+MODULES = ["Application scoring","Model validation","Strategy simulator","Profitability","Stress testing","Walk-forward","Production monitoring","IFRS 9 ECL","Deployment controls","Fairness","Behavioural EWS","Overrides","Governance","TNEX products","Real-time decisioning","Digital funnel","Lifecycle controls","TNEX V8","TNEX V9"]
+st.sidebar.title("TNEX Credit Risk")
+st.sidebar.caption("Decision Intelligence Platform — V9")
+selected_module = st.sidebar.radio("Navigation", MODULES, key="main_navigation")
+
+if selected_module == "Application scoring":
     c1, c2, c3 = st.columns(3)
     with c1:
         age = st.number_input("Age", 20, 65, 35); income = st.number_input("Monthly income (VND)", 3_000_000, 500_000_000, 20_000_000, step=1_000_000)
@@ -37,13 +41,13 @@ with tab1:
     detail=pd.DataFrame(model.points_detail(row)[0]).sort_values("score_points").head(5)
     st.dataframe(detail[["feature","bin","woe","score_points"]],use_container_width=True,hide_index=True)
     st.info("Policy cut-offs: APPROVE < 8% PD • REVIEW 8%–18% • DECLINE ≥ 18%")
-with tab2:
+if selected_module == "Model validation":
     cols = st.columns(5)
     vals = [("Status",meta["validation_status"]),("OOT AUC",f'{meta["auc"]:.3f}'),("Gini",f'{meta["gini"]:.3f}'),("KS",f'{meta["ks"]:.3f}'),("Brier",f'{meta["brier"]:.3f}')]
     for col,(k,v) in zip(cols,vals): col.metric(k,v)
     st.write("**Reconstruction control:**",payload["reconstruction"]["status"],"| Maximum PD gap:",f'{payload["reconstruction"]["max_model_vs_logit_pd_gap"]:.2e}')
     st.success("Validation covers discrimination, calibration proxy, stability and out-of-time performance. Full evidence is in reports/model_validation_pack.xlsx.")
-with tab3:
+if selected_module == "Strategy simulator":
     strategy=pd.DataFrame(payload["v5_strategy_grid"])
     c1,c2=st.columns(2)
     approve_max=c1.slider("Maximum PD for approval",.06,.13,.10,.01)
@@ -54,70 +58,70 @@ with tab3:
     curve=strategy[strategy.review_pd_max.round(2)==round(review_max,2)].set_index("approve_pd_max")
     st.line_chart(curve[["approval_rate","observed_bad_rate","portfolio_raroc"]])
     rec=payload["v5_summary"]; st.info(f'Recommended simulated policy: approve below {rec["recommended_approve_pd_max"]:.0%} PD and review below {rec["recommended_review_pd_max"]:.0%} PD, subject to committee approval and live-data validation.')
-with tab4:
+if selected_module == "Profitability":
     pricing_view=pd.DataFrame(payload["v5_profitability"]); st.dataframe(pricing_view,use_container_width=True,hide_index=True)
     st.bar_chart(pricing_view.set_index("risk_band")[["expected_profit","expected_loss"]])
     st.caption("EAD is capped by requested amount and five times monthly income. Expected profit deducts expected loss, funding cost and operating cost; RAROC uses 10% economic capital.")
-with tab5:
+if selected_module == "Stress testing":
     stress=pd.DataFrame(payload["v5_stress_testing"]); st.dataframe(stress,use_container_width=True,hide_index=True)
     s1,s2,s3=st.columns(3)
     for col,scenario in zip([s1,s2,s3],["Base","Downturn","Severe"]):
         r=stress[stress.scenario==scenario].iloc[0]; col.metric(scenario,f'VND {r.expected_profit/1e9:.1f}bn',f'EL {r.expected_loss/1e9:.1f}bn')
     st.bar_chart(stress.set_index("scenario")[["expected_profit","expected_loss"]])
-with tab6:
+if selected_module == "Walk-forward":
     wf=pd.DataFrame(payload["v5_champion_challenger"]); st.dataframe(wf,use_container_width=True,hide_index=True)
     st.line_chart(wf.pivot(index="window",columns="model",values="auc"))
     s=payload["v5_summary"]; a,b,c=st.columns(3); a.metric("Champion mean AUC",f'{s["champion_mean_auc"]:.3f}'); b.metric("Challenger mean AUC",f'{s["challenger_mean_auc"]:.3f}'); c.metric("Decision",s["challenger_decision"])
-with tab7:
+if selected_module == "Production monitoring":
     mon=pd.DataFrame(payload["v6_delayed_monitoring"])
     m1,m2,m3,m4=st.columns(4);m1.metric("Applications",f'{mon.applications.sum():,.0f}');m2.metric("Mature months",f'{(mon.label_maturity_rate>=.8).sum()} / {len(mon)}');m3.metric("Latest PSI",f'{mon.iloc[-1].score_psi:.3f}');m4.metric("Latest status",mon.iloc[-1].status)
     st.line_chart(mon.set_index("month")[["mean_pd","observed_bad_rate","score_psi"]])
     st.dataframe(mon,use_container_width=True,hide_index=True)
     st.caption("AUC, KS and observed bad rate remain unavailable until the 12-month outcome window matures. Leading indicators are used in the interim.")
-with tab8:
+if selected_module == "IFRS 9 ECL":
     stages=pd.DataFrame(payload["v6_ifrs9_stage_summary"]); scenarios=pd.DataFrame(payload["v6_macro_scenarios"])
     e1,e2,e3=st.columns(3);e1.metric("Weighted ECL",f'VND {stages.weighted_ecl.sum()/1e9:.2f}bn');e2.metric("Stage 2–3 share",f'{stages.loc[stages.stage!="Stage 1","accounts"].sum()/stages.accounts.sum():.1%}');e3.metric("Build status",payload["v6_summary"]["overall_status"])
     st.dataframe(stages,use_container_width=True,hide_index=True);st.bar_chart(stages.set_index("stage")[["total_ead","weighted_ecl"]])
     st.subheader("Macroeconomic scenarios");st.dataframe(scenarios,use_container_width=True,hide_index=True);st.bar_chart(scenarios.set_index("scenario")["total_ecl"])
     st.subheader("LGD and EAD validation");st.json({"LGD":payload["v6_lgd_validation"],"EAD":payload["v6_ead_validation"]})
-with tab9:
+if selected_module == "Deployment controls":
     gates=pd.DataFrame(payload["v6_deployment_gates"]);incidents=pd.DataFrame(payload["v6_incidents"]);rollback=pd.DataFrame(payload["v6_rollback_drill"])
     d1,d2,d3=st.columns(3);d1.metric("Rollout status",payload["v6_summary"]["rollout_status"]);d2.metric("Rollback controls",f'{payload["v6_summary"]["rollback_controls_passed"]}/5 PASS');d3.metric("Open incidents",f'{(incidents.status=="OPEN").sum()}')
     st.subheader("Shadow and canary gates");st.dataframe(gates,use_container_width=True,hide_index=True)
     st.subheader("Incident register");st.dataframe(incidents,use_container_width=True,hide_index=True)
     st.subheader("Rollback evidence");st.dataframe(rollback,use_container_width=True,hide_index=True)
-with tab10:
+if selected_module == "Fairness":
     fair=pd.DataFrame(payload["v41_fairness"]); dim=st.selectbox("Assessment dimension",fair.dimension.unique()); view=fair[fair.dimension==dim]
     st.dataframe(view,use_container_width=True,hide_index=True); st.bar_chart(view.set_index("group")[["approval_rate","bad_rate"]]); st.caption("A disparate impact ratio below 0.80 is flagged for review; it does not by itself establish unlawful discrimination.")
-with tab11:
+if selected_module == "Behavioural EWS":
     ews=pd.DataFrame(payload["ews_summary"]); st.dataframe(ews,use_container_width=True,hide_index=True); st.bar_chart(ews.set_index("ews_status")["accounts"])
     accounts=pd.read_csv(ROOT/"data/behavioural_ews_sample.csv"); status=st.selectbox("EWS status",["RED","AMBER","GREEN"]); st.dataframe(accounts[accounts.ews_status==status].head(100),use_container_width=True,hide_index=True)
-with tab12:
+if selected_module == "Overrides":
     queue=pd.read_csv(ROOT/"data/manual_review_queue.csv"); st.dataframe(queue[["application_id","pd_12m","decision","override_flag","override_direction","override_reason","final_decision","authority"]].head(200),use_container_width=True,hide_index=True)
     st.metric("Override rate",f'{queue.override_flag.mean():.1%}')
-with tab13:
+if selected_module == "Governance":
     gov=pd.DataFrame(payload["governance"]); st.dataframe(gov,use_container_width=True,hide_index=True); st.info("Committee approval and production release remain pending in this portfolio simulation.")
     st.subheader("Model registry")
     registry=json.loads((ROOT/"artifacts/model_registry.json").read_text()); st.json(registry)
     st.subheader("Active credit policy")
     st.json(payload["policy"])
-with tab14:
+if selected_module == "TNEX products":
     s=payload["v7_summary"]; a,b,c,d=st.columns(4); a.metric("Applications",f'{s["applications"]:,}'); b.metric("Products",s["products"]); c.metric("Approval rate",f'{s["approval_rate"]:.1%}'); d.metric("P95 decision",f'{s["p95_end_to_end_ms"]:.0f} ms')
     st.dataframe(pd.DataFrame(payload["v7_product_performance"]),use_container_width=True,hide_index=True)
     st.subheader("Versioned product policy"); st.dataframe(pd.DataFrame(payload["v7_product_config"]),use_container_width=True,hide_index=True)
     st.warning(s["disclaimer"])
-with tab15:
+if selected_module == "Real-time decisioning":
     latency=pd.DataFrame(payload["v7_latency"]); st.bar_chart(latency.set_index("component")["p95_ms"]); st.dataframe(latency,use_container_width=True,hide_index=True)
     st.subheader("Alternative-data governance"); st.dataframe(pd.DataFrame(payload["v7_feature_governance"]),use_container_width=True,hide_index=True)
     st.caption("Consent, freshness and fallback are explicit controls. Missing alternative data never silently becomes an adverse decision.")
-with tab16:
-    funnel=pd.DataFrame(payload["v7_funnel"]); st.bar_chart(funnel.set_index("stage")["customers"]); st.dataframe(funnel,use_container_width=True,hide_index=True)
+if selected_module == "Digital funnel":
+    s=payload["v7_summary"]; funnel=pd.DataFrame(payload["v7_funnel"]); st.bar_chart(funnel.set_index("stage")["customers"]); st.dataframe(funnel,use_container_width=True,hide_index=True)
     st.metric("Start-to-disbursement conversion",f'{s["disbursement_conversion"]:.1%}')
-with tab17:
+if selected_module == "Lifecycle controls":
     st.subheader("Repeat-customer limit actions"); st.dataframe(pd.DataFrame(payload["v7_lifecycle"]),use_container_width=True,hide_index=True)
     st.subheader("Payment and collections controls"); st.dataframe(pd.DataFrame(payload["v7_collections"]),use_container_width=True,hide_index=True)
     st.info("Unresolved payment-posting exceptions suppress automated reminders until the ledger is reconciled.")
-with tab18:
+if selected_module == "TNEX V8":
     section=st.radio("V8 module",["Live decision","Risk–profit optimizer","Fraud network","Collections NBA","Command center"],horizontal=True)
     if section=="Live decision":
         c1,c2,c3=st.columns(3)
@@ -133,7 +137,7 @@ with tab18:
     elif section=="Collections NBA": st.dataframe(pd.DataFrame(payload["v8_collections_nba"]),use_container_width=True,hide_index=True);st.success("Payment-pending accounts have contact suppression enabled.")
     else:
         mon=pd.DataFrame(payload["v8_monitoring"]);st.dataframe(mon,use_container_width=True,hide_index=True);st.subheader("Product model calibration");st.dataframe(pd.DataFrame(payload["v8_product_models"]),use_container_width=True,hide_index=True);st.warning(payload["v8_summary"]["disclaimer"])
-with tab19:
+if selected_module == "TNEX V9":
     view=st.radio("V9 executive view",["Risk committee","Product models","Risk appetite","Model governance","Customer outcomes"],horizontal=True)
     s9=payload["v9_summary"]
     if view=="Risk committee":
