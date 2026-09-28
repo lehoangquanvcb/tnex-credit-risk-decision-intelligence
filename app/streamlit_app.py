@@ -18,7 +18,7 @@ st.markdown("""
 .stApp { background:linear-gradient(180deg,#071a2b 0%,#0a2136 100%); color:#f8fafc; }
 [data-testid="stSidebar"] { background:#071c2f; border-right:1px solid #294c68; }
 [data-testid="stSidebar"] .block-container { padding-top:1.2rem; }
-.block-container { max-width:1800px; padding-top:1.25rem; padding-bottom:2rem; }
+.block-container { max-width:1800px; padding-top:2.4rem; padding-bottom:2rem; }
 h1,h2,h3 { letter-spacing:-.02em; color:#f8fafc !important; }
 [data-testid="stMetric"] { background:#102c46; border:1px solid #294c68; border-radius:12px; padding:15px 17px; min-height:112px; box-shadow:0 5px 18px rgba(0,0,0,.14); }
 [data-testid="stMetricLabel"] { color:#b7c8d8; font-weight:700; }
@@ -35,9 +35,9 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div { background:#
 .tnex-logo { width:48px; height:48px; border-radius:14px; display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#00b5ad,#2563eb); font-size:25px; box-shadow:0 8px 20px rgba(0,181,173,.25); }
 .tnex-brand h2 { font-size:18px; margin:9px 0 1px; }
 .tnex-brand p { color:#8eacc4; font-size:11px; margin:0; }
-.hero { background:linear-gradient(115deg,#103b5a 0%,#0d3552 55%,#075d67 100%); border:1px solid #34708b; border-radius:15px; padding:18px 22px; margin-bottom:14px; box-shadow:0 9px 28px rgba(0,0,0,.18); }
-.hero-kicker { color:#65dce5; font-size:11px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
-.hero h1 { margin:3px 0 3px; font-size:29px; }
+.hero { background:linear-gradient(115deg,#103b5a 0%,#0d3552 55%,#075d67 100%); border:1px solid #34708b; border-radius:15px; padding:24px 22px 20px; margin:8px 0 14px; box-shadow:0 9px 28px rgba(0,0,0,.18); overflow:visible; }
+.hero-kicker { color:#65dce5; font-size:11px; line-height:1.5; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin-bottom:5px; }
+.hero h1 { margin:3px 0 3px; font-size:29px; line-height:1.25; }
 .hero p { margin:0; color:#c3d6e5; font-size:13px; }
 .section-title { font-size:16px; font-weight:800; margin:15px 0 8px; color:#f8fafc; }
 .kpi-card { background:linear-gradient(145deg,#102f4b,#10283f); border:1px solid #315572; border-radius:12px; padding:14px 14px 12px; min-height:118px; box-shadow:0 5px 18px rgba(0,0,0,.15); }
@@ -47,6 +47,9 @@ div[data-baseweb="select"] > div, div[data-baseweb="input"] > div { background:#
 .kpi-delta { font-size:10px; font-weight:700; color:#50df8a; }
 .kpi-delta.warn { color:#fbbf24; } .kpi-delta.bad { color:#ff6b6b; }
 .panel-title { color:#f8fafc; font-size:14px; font-weight:800; margin-bottom:7px; }
+.allocation-row { display:grid; grid-template-columns:105px 1fr 48px; gap:10px; align-items:center; margin:17px 0; font-size:12px; font-weight:700; }
+.allocation-track { background:#071a2b; height:15px; border-radius:999px; overflow:hidden; border:1px solid #294c68; }
+.allocation-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#2563eb,#22c1c3); }
 .status-pill { display:inline-block; border-radius:999px; padding:3px 9px; font-size:10px; font-weight:800; background:#164e3a; color:#75f0a5; }
 @media (max-width:900px) { .hero h1{font-size:22px}.kpi-value{font-size:19px}.block-container{padding-left:.8rem;padding-right:.8rem} }
 </style>
@@ -60,29 +63,27 @@ def load_csv(name):
     return pd.read_csv(ROOT / "data" / name)
 
 NAVIGATION = {
-    "🏠  Executive overview":"Executive overview",
-    "▤  Portfolio overview":"Portfolio overview", "▥  Vintage analysis":"Vintage analysis",
-    "↔  DPD & roll rate":"DPD & roll rate", "⌁  Delinquency analysis":"Delinquency analysis",
-    "◉  Collection analytics":"Collection analytics", "◎  Risk indicators":"Risk indicators",
-    "▦  MIS dashboard":"MIS dashboard",
-    "◉  Application scoring":"Application scoring", "◫  Model validation":"Model validation",
-    "⌁  Strategy simulator":"Strategy simulator", "₫  Profitability":"Profitability",
-    "△  Stress testing":"Stress testing", "↗  Walk-forward":"Walk-forward",
-    "◌  Production monitoring":"Production monitoring", "▦  IFRS 9 ECL":"IFRS 9 ECL",
-    "✓  Deployment controls":"Deployment controls", "⚖  Fairness":"Fairness",
-    "⚠  Behavioural EWS":"Behavioural EWS", "⇄  Overrides":"Overrides",
-    "◇  Governance":"Governance", "☑  Action tracker":"Action tracker",
-    "▧  Data quality":"Data quality", "≡  Data dictionary":"Data dictionary",
-    "▣  TNEX products":"TNEX products",
-    "⚡  Real-time decisioning":"Real-time decisioning", "▽  Digital funnel":"Digital funnel",
-    "⟳  Lifecycle controls":"Lifecycle controls", "◈  TNEX V8":"TNEX V8", "◆  TNEX V9":"TNEX V9"
+    "🏠  Executive overview":["Executive overview"],
+    "▤  Portfolio analytics":["Portfolio overview","Vintage analysis","DPD & roll rate","Delinquency analysis"],
+    "◉  Collections & EWS":["Collection analytics","Behavioural EWS","Lifecycle controls"],
+    "◫  Models & scoring":["Application scoring","Model validation","Walk-forward","Fairness"],
+    "⌁  Strategy & economics":["Strategy simulator","Profitability","Stress testing","IFRS 9 ECL"],
+    "⚡  Production & decisioning":["Production monitoring","Deployment controls","Real-time decisioning","TNEX V8"],
+    "▣  Products & customer journey":["TNEX products","Digital funnel","TNEX V9"],
+    "◎  MIS & risk indicators":["Risk indicators","MIS dashboard"],
+    "◇  Governance & data":["Governance","Overrides","Action tracker","Data quality","Data dictionary"]
 }
 st.sidebar.markdown('<div class="tnex-brand"><div class="tnex-logo">💳</div><h2>TNEX CREDIT RISK</h2><p>Retail Decision Intelligence Workbench</p></div>', unsafe_allow_html=True)
 st.sidebar.caption("NAVIGATION")
 selected_label = st.sidebar.radio("Navigation", list(NAVIGATION), key="main_navigation", label_visibility="collapsed")
-selected_module = NAVIGATION[selected_label]
+group_modules=NAVIGATION[selected_label]
+selected_group=selected_label.split("  ",1)[-1].title()
+if len(group_modules)>1:
+    selected_module=st.sidebar.selectbox("VIEW",group_modules,key="group_view")
+else:
+    selected_module=group_modules[0]
 st.sidebar.markdown("---")
-st.sidebar.caption("V11 • Portfolio + Models + Production • Simulation environment")
+st.sidebar.caption("V12 • Consolidated portfolio + model workbench")
 
 PAGE_SUBTITLE = {
     "Executive overview":"Portfolio risk, product economics, model health and management actions",
@@ -116,7 +117,7 @@ PAGE_SUBTITLE = {
     "TNEX V8":"Digital lending operating system and live-decision simulation",
     "TNEX V9":"Product models, portfolio risk appetite and committee pack"
 }
-st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • CONSUMER CREDIT RISK • V11</div><h1>{selected_module}</h1><p>{PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • CONSUMER CREDIT RISK • V12</div><h1>{selected_group}</h1><p><b>{selected_module}</b> &nbsp;•&nbsp; {PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
 
 def kpi_card(column, icon, label, value, note, tone="good"):
     column.markdown(f'<div class="kpi-card"><div class="kpi-icon">{icon}</div><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-delta {tone}">{note}</div></div>', unsafe_allow_html=True)
@@ -142,12 +143,15 @@ if selected_module == "Executive overview":
     left,mid,right=st.columns([1.15,1.15,1])
     with left:
         st.markdown('<div class="panel-title">Recommended portfolio allocation</div>',unsafe_allow_html=True)
-        allocation=pd.DataFrame({"Product":["Cash Loan","BNPL","Business Loan"],"Share":[rec["cash_loan_share"],rec["bnpl_share"],rec["business_loan_share"]]}).set_index("Product")
-        st.bar_chart(allocation,height=270,color="#19b5c5")
+        allocation=[("Cash Loan",rec["cash_loan_share"]),("BNPL",rec["bnpl_share"]),("Business Loan",rec["business_loan_share"])]
+        allocation_html="".join([f'<div class="allocation-row"><span>{name}</span><div class="allocation-track"><div class="allocation-fill" style="width:{share:.0%}"></div></div><b>{share:.0%}</b></div>' for name,share in allocation])
+        st.markdown(f'<div style="background:#10283f;border:1px solid #294c68;border-radius:10px;padding:18px 16px;height:270px">{allocation_html}<div style="color:#8eacc4;font-size:11px;margin-top:18px">Allocation maximizes simulated RAROC subject to concentration and risk-appetite constraints.</div></div>',unsafe_allow_html=True)
     with mid:
         st.markdown('<div class="panel-title">Product model health</div>',unsafe_allow_html=True)
         models=pd.DataFrame(payload["v9_product_models"])
-        st.bar_chart(models.set_index("product")[["oot_auc","oot_ks"]],height=270)
+        health=models[["product","oot_auc","oot_gini","oot_ks","calibration_gap","status","next_review"]].copy()
+        health.columns=["Product","AUC","Gini","KS","Cal. gap","Status","Next review"]
+        st.dataframe(health,use_container_width=True,hide_index=True,height=270)
     with right:
         st.markdown('<div class="panel-title">Key risk indicators</div>',unsafe_allow_html=True)
         indicators=pd.DataFrame([
@@ -158,6 +162,20 @@ if selected_module == "Executive overview":
             ["Rollout",payload["v6_summary"]["rollout_status"],"CONTROLLED"]
         ],columns=["Metric","Value","Status"])
         st.dataframe(indicators,use_container_width=True,hide_index=True,height=270)
+    st.markdown('<div class="section-title">Performance, customer journey and controls</div>',unsafe_allow_html=True)
+    p1,p2,p3=st.columns([1.1,1.15,1])
+    with p1:
+        st.markdown('<div class="panel-title">Digital application funnel</div>',unsafe_allow_html=True)
+        funnel=pd.DataFrame(payload["v7_funnel"])
+        st.bar_chart(funnel.set_index("stage")["customers"],height=255,color="#22c1c3")
+    with p2:
+        st.markdown('<div class="panel-title">Model and portfolio monitoring</div>',unsafe_allow_html=True)
+        monitoring=pd.DataFrame(payload["v6_delayed_monitoring"])
+        st.line_chart(monitoring.set_index("month")[["mean_pd","observed_bad_rate","score_psi"]],height=255)
+    with p3:
+        st.markdown('<div class="panel-title">Product performance</div>',unsafe_allow_html=True)
+        performance=pd.DataFrame(payload["v7_product_performance"])[["product","applications","approval_rate","fraud_decline_rate","mean_decision_pd","p95_latency_ms"]]
+        st.dataframe(performance,use_container_width=True,hide_index=True,height=255)
     st.markdown('<div class="section-title">Executive decisions and actions</div>',unsafe_allow_html=True)
     a1,a2=st.columns([1.35,1])
     with a1:
