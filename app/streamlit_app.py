@@ -55,15 +55,25 @@ model = joblib.load(ROOT / "artifacts/retail_woe_scorecard_v4.joblib")
 meta = json.loads((ROOT / "artifacts/model_metadata_v4.json").read_text())
 payload=json.loads((ROOT/"reports/validation_payload.json").read_text())
 
+@st.cache_data
+def load_csv(name):
+    return pd.read_csv(ROOT / "data" / name)
+
 NAVIGATION = {
     "🏠  Executive overview":"Executive overview",
+    "▤  Portfolio overview":"Portfolio overview", "▥  Vintage analysis":"Vintage analysis",
+    "↔  DPD & roll rate":"DPD & roll rate", "⌁  Delinquency analysis":"Delinquency analysis",
+    "◉  Collection analytics":"Collection analytics", "◎  Risk indicators":"Risk indicators",
+    "▦  MIS dashboard":"MIS dashboard",
     "◉  Application scoring":"Application scoring", "◫  Model validation":"Model validation",
     "⌁  Strategy simulator":"Strategy simulator", "₫  Profitability":"Profitability",
     "△  Stress testing":"Stress testing", "↗  Walk-forward":"Walk-forward",
     "◌  Production monitoring":"Production monitoring", "▦  IFRS 9 ECL":"IFRS 9 ECL",
     "✓  Deployment controls":"Deployment controls", "⚖  Fairness":"Fairness",
     "⚠  Behavioural EWS":"Behavioural EWS", "⇄  Overrides":"Overrides",
-    "◇  Governance":"Governance", "▣  TNEX products":"TNEX products",
+    "◇  Governance":"Governance", "☑  Action tracker":"Action tracker",
+    "▧  Data quality":"Data quality", "≡  Data dictionary":"Data dictionary",
+    "▣  TNEX products":"TNEX products",
     "⚡  Real-time decisioning":"Real-time decisioning", "▽  Digital funnel":"Digital funnel",
     "⟳  Lifecycle controls":"Lifecycle controls", "◈  TNEX V8":"TNEX V8", "◆  TNEX V9":"TNEX V9"
 }
@@ -72,10 +82,17 @@ st.sidebar.caption("NAVIGATION")
 selected_label = st.sidebar.radio("Navigation", list(NAVIGATION), key="main_navigation", label_visibility="collapsed")
 selected_module = NAVIGATION[selected_label]
 st.sidebar.markdown("---")
-st.sidebar.caption("V10 • Model risk controlled • Simulation environment")
+st.sidebar.caption("V11 • Portfolio + Models + Production • Simulation environment")
 
 PAGE_SUBTITLE = {
     "Executive overview":"Portfolio risk, product economics, model health and management actions",
+    "Portfolio overview":"Portfolio growth, approval quality, exposure and risk segmentation",
+    "Vintage analysis":"Cohort performance, FPD30 and early delinquency development",
+    "DPD & roll rate":"Delinquency stock, cure dynamics and migration-control view",
+    "Delinquency analysis":"DPD distribution, behavioural risk and segment-level deterioration",
+    "Collection analytics":"Next-best-action, contact controls and collection segmentation",
+    "Risk indicators":"Consolidated portfolio, model, fraud and operational risk signals",
+    "MIS dashboard":"Management information for portfolio and risk-committee reporting",
     "Application scoring":"Applicant-level PD, score, affordability and explainable decisioning",
     "Model validation":"Independent performance, calibration, stability and reconstruction controls",
     "Strategy simulator":"Optimize approval, credit loss and risk-adjusted profitability",
@@ -89,6 +106,9 @@ PAGE_SUBTITLE = {
     "Behavioural EWS":"Behavioural risk signals and early-warning segmentation",
     "Overrides":"Manual review, authority and decision override controls",
     "Governance":"Model inventory, ownership, policy and approval evidence",
+    "Action tracker":"Incidents, validation findings, owners, deadlines and remediation status",
+    "Data quality":"Completeness, validity, freshness and production-readiness controls",
+    "Data dictionary":"Business definitions for portfolio, model and decisioning fields",
     "TNEX products":"Product policy and performance across digital lending products",
     "Real-time decisioning":"Latency, alternative-data governance and decision controls",
     "Digital funnel":"Customer journey conversion and decision drop-off",
@@ -96,7 +116,7 @@ PAGE_SUBTITLE = {
     "TNEX V8":"Digital lending operating system and live-decision simulation",
     "TNEX V9":"Product models, portfolio risk appetite and committee pack"
 }
-st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • RETAIL CREDIT RISK • V10</div><h1>{selected_module}</h1><p>{PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • CONSUMER CREDIT RISK • V11</div><h1>{selected_module}</h1><p>{PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
 
 def kpi_card(column, icon, label, value, note, tone="good"):
     column.markdown(f'<div class="kpi-card"><div class="kpi-icon">{icon}</div><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-delta {tone}">{note}</div></div>', unsafe_allow_html=True)
@@ -146,6 +166,120 @@ if selected_module == "Executive overview":
         st.warning("**Business Loan model:** retain REVIEW status until OOT sample and discriminatory power meet production thresholds.")
         st.info("**Risk appetite:** deploy the recommended product allocation subject to committee approval and live-data validation.")
         st.success("**Deployment:** rollback controls passed; maintain staged rollout and weekly drift monitoring.")
+
+if selected_module == "Portfolio overview":
+    prod=load_csv("production_monitoring_sample.csv")
+    with st.container(border=True):
+        x1,x2,x3,x4=st.columns(4)
+        channel_pick=x1.selectbox("Channel",["All"]+sorted(prod.channel.unique().tolist()),key="portfolio_channel")
+        decision_pick=x2.selectbox("Decision",["All"]+sorted(prod.decision.unique().tolist()),key="portfolio_decision")
+        employment_pick=x3.selectbox("Employment",["All"]+sorted(prod.employment_type.unique().tolist()),key="portfolio_employment")
+        month_pick=x4.selectbox("Reporting month",["All"]+sorted(prod.month.astype(str).unique().tolist()),key="portfolio_month")
+    view=prod.copy()
+    for col,val in [("channel",channel_pick),("decision",decision_pick),("employment_type",employment_pick),("month",month_pick)]:
+        if val!="All": view=view[view[col].astype(str)==str(val)]
+    cards=st.columns(6)
+    kpi_card(cards[0],"▤","Applications",f'{len(view):,}',"Filtered portfolio")
+    kpi_card(cards[1],"₫","Requested exposure",f'{view.requested_amount.sum()/1e9:,.1f}B',"VND application volume")
+    kpi_card(cards[2],"✓","Approval rate",f'{(view.decision=="APPROVE").mean():.1%}',"Policy outcome")
+    kpi_card(cards[3],"◉","Observed bad rate",f'{view.default_12m.mean():.1%}',"12-month outcome","warn")
+    kpi_card(cards[4],"◎","Mean predicted PD",f'{view.pd_12m.mean():.1%}',"Model expectation")
+    kpi_card(cards[5],"◆","Average score",f'{view.credit_score.mean():.0f}',"Portfolio quality")
+    a,b=st.columns(2)
+    with a:
+        st.markdown('<div class="section-title">Monthly applications and exposure</div>',unsafe_allow_html=True)
+        monthly=view.groupby("month").agg(applications=("application_id","count"),exposure_bn=("requested_amount",lambda x:x.sum()/1e9))
+        st.line_chart(monthly,height=300)
+    with b:
+        st.markdown('<div class="section-title">Decision and channel mix</div>',unsafe_allow_html=True)
+        mix=pd.crosstab(view.channel,view.decision)
+        st.bar_chart(mix,height=300)
+    st.markdown('<div class="section-title">Portfolio risk segmentation</div>',unsafe_allow_html=True)
+    view=view.assign(risk_band=pd.cut(view.pd_12m,[-1,.05,.10,.18,1],labels=["Low","Medium","High","Very High"]))
+    risk=view.groupby("risk_band",observed=False).agg(applications=("application_id","count"),approval_rate=("decision",lambda x:(x=="APPROVE").mean()),bad_rate=("default_12m","mean"),mean_pd=("pd_12m","mean"),exposure_vnd=("requested_amount","sum")).reset_index()
+    st.dataframe(risk,use_container_width=True,hide_index=True)
+
+if selected_module == "Vintage analysis":
+    q=load_csv("manual_review_queue.csv")
+    vintage=q.groupby("month").agg(bookings=("application_id","count"),approval_rate=("final_decision",lambda x:(x=="APPROVE").mean()),fpd30_rate=("fpd30","mean"),mob3_30plus_rate=("mob3_30plus","mean"),bad_rate_12m=("default_12m","mean"),mean_pd=("pd_12m","mean")).reset_index()
+    cards=st.columns(5)
+    kpi_card(cards[0],"▥","Cohorts",f'{len(vintage)}',"Monthly vintages")
+    kpi_card(cards[1],"⚠","Latest FPD30",f'{vintage.iloc[-1].fpd30_rate:.1%}',"Early payment risk","warn")
+    kpi_card(cards[2],"↗","Latest MOB3 30+",f'{vintage.iloc[-1].mob3_30plus_rate:.1%}',"Seasoning indicator","warn")
+    kpi_card(cards[3],"◉","12M bad rate",f'{q.default_12m.mean():.1%}',"Observed portfolio")
+    kpi_card(cards[4],"✓","Approval rate",f'{(q.final_decision=="APPROVE").mean():.1%}',"Final decisions")
+    c1,c2=st.columns([1.35,1])
+    with c1:
+        st.markdown('<div class="section-title">Vintage delinquency curves</div>',unsafe_allow_html=True)
+        st.line_chart(vintage.set_index("month")[["fpd30_rate","mob3_30plus_rate","bad_rate_12m"]],height=340)
+    with c2:
+        st.markdown('<div class="section-title">Cohort quality table</div>',unsafe_allow_html=True)
+        st.dataframe(vintage,use_container_width=True,hide_index=True,height=340)
+    st.caption("Portfolio simulation based on the available labelled review sample; replace with production booking cohorts when TNEX monthly snapshots become available.")
+
+if selected_module == "DPD & roll rate":
+    ews=load_csv("behavioural_ews_sample.csv")
+    labels=["Current","1–30","31–60","61–90","90+"]
+    ews["dpd_bucket"]=pd.cut(ews.days_past_due,[-1,0,30,60,90,10_000],labels=labels)
+    dist=ews.groupby("dpd_bucket",observed=False).agg(accounts=("account_id","count"),mean_pd=("behavioural_pd","mean"),default_rate=("default_90d","mean"),mean_utilisation=("utilisation","mean")).reset_index()
+    cards=st.columns(5)
+    for col,bucket in zip(cards,labels):
+        row=dist[dist.dpd_bucket==bucket].iloc[0]; kpi_card(col,"◌",bucket,f'{int(row.accounts):,}',f'Default {row.default_rate:.1%}',"bad" if bucket in ["61–90","90+"] else "warn")
+    a,b=st.columns([1,1.35])
+    with a:
+        st.markdown('<div class="section-title">Current DPD stock</div>',unsafe_allow_html=True); st.bar_chart(dist.set_index("dpd_bucket")["accounts"],height=330)
+    with b:
+        st.markdown('<div class="section-title">Illustrative one-month migration matrix</div>',unsafe_allow_html=True)
+        matrix=pd.DataFrame([[.955,.024,.013,.006,.002],[.361,.312,.283,.044,0],[.171,.247,.308,.275,0],[.091,.109,.218,.473,.109],[.022,.018,.035,.115,.810]],index=labels,columns=labels)
+        st.dataframe(matrix.style.format("{:.1%}").background_gradient(cmap="RdYlGn_r",axis=None),use_container_width=True,height=330)
+    st.warning("Migration matrix is an illustrative control benchmark because the current package contains one behavioural snapshot. Actual roll and cure rates require account-level month-on-month DPD histories.")
+
+if selected_module == "Delinquency analysis":
+    ews=load_csv("behavioural_ews_sample.csv")
+    ews["dpd_bucket"]=pd.cut(ews.days_past_due,[-1,0,30,60,90,10_000],labels=["Current","1–30","31–60","61–90","90+"])
+    summary=ews.groupby(["ews_status","dpd_bucket"],observed=False).agg(accounts=("account_id","count"),mean_pd=("behavioural_pd","mean"),default_rate=("default_90d","mean"),utilisation=("utilisation","mean"),payment_ratio=("payment_ratio","mean")).reset_index()
+    c1,c2,c3,c4=st.columns(4)
+    c1.metric("30+ DPD",f'{(ews.days_past_due>30).mean():.1%}'); c2.metric("90+ DPD",f'{(ews.days_past_due>90).mean():.1%}'); c3.metric("Red EWS",f'{(ews.ews_status=="RED").mean():.1%}'); c4.metric("Mean behavioural PD",f'{ews.behavioural_pd.mean():.1%}')
+    a,b=st.columns(2)
+    with a: st.markdown('<div class="section-title">Accounts by DPD and EWS</div>',unsafe_allow_html=True); st.bar_chart(summary.pivot(index="dpd_bucket",columns="ews_status",values="accounts"),height=330)
+    with b: st.markdown('<div class="section-title">Risk severity by DPD bucket</div>',unsafe_allow_html=True); st.line_chart(ews.groupby("dpd_bucket",observed=False)[["behavioural_pd","default_90d","utilisation"]].mean(),height=330)
+    st.dataframe(summary,use_container_width=True,hide_index=True)
+
+if selected_module == "Collection analytics":
+    nba=load_csv("collections_nba_v8.csv"); controls=load_csv("collections_controls_v7.csv")
+    cards=st.columns(5)
+    kpi_card(cards[0],"◉","Collection accounts",f'{len(nba):,}',"NBA population")
+    kpi_card(cards[1],"⚠","Payment pending",f'{nba.payment_pending.mean():.1%}',"Contact suppression","warn")
+    kpi_card(cards[2],"◇","Vulnerable customers",f'{nba.vulnerability_flag.mean():.1%}',"Treatment safeguards","warn")
+    kpi_card(cards[3],"✓","Contact allowed",f'{nba.contact_allowed.mean():.1%}',"Controlled outreach")
+    kpi_card(cards[4],"↗","Mean DPD",f'{nba.dpd.mean():.1f}',"Collection severity")
+    a,b=st.columns([1.15,1])
+    with a: st.markdown('<div class="section-title">Next-best-action allocation</div>',unsafe_allow_html=True); st.bar_chart(nba.nba.value_counts(),height=320)
+    with b: st.markdown('<div class="section-title">Collection controls</div>',unsafe_allow_html=True); st.dataframe(controls,use_container_width=True,hide_index=True,height=320)
+    st.markdown('<div class="section-title">Prioritized work queue</div>',unsafe_allow_html=True)
+    st.dataframe(nba.sort_values(["vulnerability_flag","dpd"],ascending=[False,False]).head(150),use_container_width=True,hide_index=True)
+
+if selected_module == "Risk indicators":
+    mon=load_csv("delayed_monitoring_v6.csv"); latest=mon.iloc[-1]; incidents=load_csv("model_incidents_v6.csv"); ews=load_csv("behavioural_ews_sample.csv")
+    cards=st.columns(6)
+    kpi_card(cards[0],"◎","Score PSI",f'{latest.score_psi:.3f}',str(latest.status),"warn")
+    kpi_card(cards[1],"◉","Mean PD",f'{latest.mean_pd:.1%}',"Latest production month")
+    kpi_card(cards[2],"⚠","30+ DPD",f'{(ews.days_past_due>30).mean():.1%}',"Behavioural snapshot","warn")
+    kpi_card(cards[3],"◆","Red EWS",f'{(ews.ews_status=="RED").mean():.1%}',"Immediate review","bad")
+    kpi_card(cards[4],"△","Open incidents",f'{(incidents.status=="OPEN").sum()}',"Operational controls","warn")
+    kpi_card(cards[5],"✓","Rollback tests",f'{payload["v6_summary"]["rollback_controls_passed"]}/5',"Deployment resilience")
+    st.markdown('<div class="section-title">Risk signal trend</div>',unsafe_allow_html=True); st.line_chart(mon.set_index("month")[["mean_pd","observed_bad_rate","score_psi","calibration_gap_when_mature"]],height=340)
+    st.markdown('<div class="section-title">Incident and action register</div>',unsafe_allow_html=True); st.dataframe(incidents,use_container_width=True,hide_index=True)
+
+if selected_module == "MIS dashboard":
+    prod=load_csv("production_monitoring_sample.csv"); monthly=prod.groupby("month").agg(applications=("application_id","count"),exposure_vnd=("requested_amount","sum"),approval_rate=("decision",lambda x:(x=="APPROVE").mean()),mean_pd=("pd_12m","mean"),bad_rate=("default_12m","mean"),mean_score=("credit_score","mean")).reset_index()
+    c1,c2,c3,c4,c5=st.columns(5)
+    c1.metric("Applications",f'{len(prod):,}');c2.metric("Exposure",f'VND {prod.requested_amount.sum()/1e9:,.1f}B');c3.metric("Approval",f'{(prod.decision=="APPROVE").mean():.1%}');c4.metric("Bad rate",f'{prod.default_12m.mean():.1%}');c5.metric("Mean score",f'{prod.credit_score.mean():.0f}')
+    a,b=st.columns(2)
+    with a: st.markdown('<div class="section-title">Volumes and exposure</div>',unsafe_allow_html=True); st.line_chart(monthly.set_index("month")[["applications","exposure_vnd"]],height=320)
+    with b: st.markdown('<div class="section-title">Approval and credit quality</div>',unsafe_allow_html=True); st.line_chart(monthly.set_index("month")[["approval_rate","mean_pd","bad_rate"]],height=320)
+    st.dataframe(monthly,use_container_width=True,hide_index=True)
+    st.download_button("Download MIS extract",monthly.to_csv(index=False).encode("utf-8"),"tnex_mis_monthly.csv","text/csv",key="download_mis")
 
 if selected_module == "Application scoring":
     c1, c2, c3 = st.columns(3)
@@ -230,6 +364,58 @@ if selected_module == "Governance":
     registry=json.loads((ROOT/"artifacts/model_registry.json").read_text()); st.json(registry)
     st.subheader("Active credit policy")
     st.json(payload["policy"])
+if selected_module == "Action tracker":
+    incidents=load_csv("model_incidents_v6.csv"); findings=pd.DataFrame(payload["v9_validation_findings"])
+    actions=pd.concat([
+        incidents.assign(item_type="Production incident").rename(columns={"incident_id":"item_id","signal":"issue","sla_hours":"deadline"})[["item_type","item_id","severity","issue","owner","deadline","status","action"]],
+        findings.assign(item_type="Validation finding",action="Remediate and validate").rename(columns={"finding_id":"item_id","finding":"issue","due_date":"deadline"})[["item_type","item_id","severity","issue","owner","deadline","status","action"]]
+    ],ignore_index=True)
+    actions["deadline"]=actions["deadline"].astype(str)
+    a,b,c,d=st.columns(4);a.metric("Total actions",len(actions));b.metric("Open",int((actions.status=="OPEN").sum()));c.metric("High/Critical",int(actions.severity.astype(str).str.upper().isin(["HIGH","CRITICAL"]).sum()));d.metric("Owners",actions.owner.nunique())
+    status_pick=st.multiselect("Status filter",sorted(actions.status.unique()),default=sorted(actions.status.unique()),key="action_status")
+    st.dataframe(actions[actions.status.isin(status_pick)].sort_values(["severity","deadline"]),use_container_width=True,hide_index=True)
+    st.info("Action tracker consolidates production incidents and independent-validation findings into one accountable remediation queue.")
+if selected_module == "Data quality":
+    datasets={"Production monitoring":load_csv("production_monitoring_sample.csv"),"TNEX decisions":load_csv("tnex_decisions_v7.csv"),"Behavioural EWS":load_csv("behavioural_ews_sample.csv"),"Manual review":load_csv("manual_review_queue.csv")}
+    rows=[]
+    for name,df in datasets.items():
+        missing=int(df.isna().sum().sum()); cells=max(df.shape[0]*df.shape[1],1)
+        duplicate=int(df.duplicated().sum())
+        rows.append({"dataset":name,"rows":len(df),"columns":len(df.columns),"completeness":1-missing/cells,"missing_cells":missing,"duplicate_rows":duplicate,"status":"PASS" if missing/cells<.01 and duplicate==0 else "REVIEW"})
+    dq=pd.DataFrame(rows)
+    a,b,c,d=st.columns(4);a.metric("Datasets checked",len(dq));b.metric("Total rows",f'{sum(len(x) for x in datasets.values()):,}');c.metric("Average completeness",f'{dq.completeness.mean():.2%}');d.metric("Controls passing",f'{(dq.status=="PASS").sum()}/{len(dq)}')
+    st.dataframe(dq,use_container_width=True,hide_index=True)
+    st.markdown('<div class="section-title">Field-level control checks</div>',unsafe_allow_html=True)
+    prod=datasets["Production monitoring"]
+    checks=pd.DataFrame([
+        ["PD range","0 ≤ pd_12m ≤ 1",prod.pd_12m.between(0,1).mean(),"PASS" if prod.pd_12m.between(0,1).all() else "FAIL"],
+        ["Credit score range","300 ≤ score ≤ 850",prod.credit_score.between(300,850).mean(),"PASS" if prod.credit_score.between(300,850).all() else "FAIL"],
+        ["Income validity","monthly_income > 0",(prod.monthly_income>0).mean(),"PASS" if (prod.monthly_income>0).all() else "FAIL"],
+        ["DTI validity","0 ≤ DTI ≤ 1",prod.existing_dti.between(0,1).mean(),"PASS" if prod.existing_dti.between(0,1).all() else "FAIL"],
+        ["Decision domain","Approved values only",prod.decision.isin(["APPROVE","REVIEW","DECLINE"]).mean(),"PASS" if prod.decision.isin(["APPROVE","REVIEW","DECLINE"]).all() else "FAIL"]
+    ],columns=["Control","Rule","Pass rate","Status"])
+    st.dataframe(checks,use_container_width=True,hide_index=True)
+if selected_module == "Data dictionary":
+    dictionary=pd.DataFrame([
+        ["application_id","Application","Unique application identifier","String","Origination platform"],
+        ["pd_12m","Credit model","Probability of default within 12 months","0–1","PD model"],
+        ["credit_score","Credit model","Score mapped monotonically from PD","300–850","Scorecard"],
+        ["decision","Decisioning","Policy outcome before manual override","APPROVE/REVIEW/DECLINE","Decision engine"],
+        ["existing_dti","Affordability","Existing debt-service-to-income ratio","0–1","Application data"],
+        ["requested_amount","Application","Requested principal amount","VND","Application data"],
+        ["fraud_score","Fraud","Estimated fraud risk","0–1","Fraud engine"],
+        ["behavioural_pd","EWS","Forward-looking behavioural default probability","0–1","Behavioural model"],
+        ["days_past_due","Collections","Calendar days payment is overdue","Days","Servicing ledger"],
+        ["fpd30","Vintage","First-payment default within 30 days","0/1","Performance mart"],
+        ["mob3_30plus","Vintage","30+ DPD observed by month on book 3","0/1","Performance mart"],
+        ["score_psi","Monitoring","Population Stability Index for score distribution","Decimal","Monitoring engine"],
+        ["weighted_ecl","IFRS 9","Scenario-weighted expected credit loss","VND","ECL engine"],
+        ["raroc","Economics","Risk-adjusted return on economic capital","Percentage","Pricing engine"]
+    ],columns=["Field","Domain","Business definition","Format","Authoritative source"])
+    domain=st.selectbox("Domain",["All"]+sorted(dictionary.Domain.unique().tolist()),key="dictionary_domain")
+    if domain!="All": dictionary=dictionary[dictionary.Domain==domain]
+    st.dataframe(dictionary,use_container_width=True,hide_index=True,height=520)
+    st.caption("Core dictionary for the simulation package. Production implementation should add data owner, lineage, sensitivity classification, retention and refresh SLA.")
 if selected_module == "TNEX products":
     s=payload["v7_summary"]; a,b,c,d=st.columns(4); a.metric("Applications",f'{s["applications"]:,}'); b.metric("Products",s["products"]); c.metric("Approval rate",f'{s["approval_rate"]:.1%}'); d.metric("P95 decision",f'{s["p95_end_to_end_ms"]:.0f} ms')
     st.dataframe(pd.DataFrame(payload["v7_product_performance"]),use_container_width=True,hide_index=True)
