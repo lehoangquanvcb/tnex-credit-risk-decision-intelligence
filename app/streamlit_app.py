@@ -83,7 +83,7 @@ if len(group_modules)>1:
 else:
     selected_module=group_modules[0]
 st.sidebar.markdown("---")
-st.sidebar.caption("V12 • Consolidated portfolio + model workbench")
+st.sidebar.caption("V13 • Consolidated portfolio + model workbench")
 
 PAGE_SUBTITLE = {
     "Executive overview":"Portfolio risk, product economics, model health and management actions",
@@ -117,7 +117,7 @@ PAGE_SUBTITLE = {
     "TNEX V8":"Digital lending operating system and live-decision simulation",
     "TNEX V9":"Product models, portfolio risk appetite and committee pack"
 }
-st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • CONSUMER CREDIT RISK • V12</div><h1>{selected_group}</h1><p><b>{selected_module}</b> &nbsp;•&nbsp; {PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • CONSUMER CREDIT RISK • V13</div><h1>{selected_group}</h1><p><b>{selected_module}</b> &nbsp;•&nbsp; {PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
 
 def kpi_card(column, icon, label, value, note, tone="good"):
     column.markdown(f'<div class="kpi-card"><div class="kpi-icon">{icon}</div><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-delta {tone}">{note}</div></div>', unsafe_allow_html=True)
@@ -356,11 +356,69 @@ if selected_module == "Production monitoring":
     st.dataframe(mon,use_container_width=True,hide_index=True)
     st.caption("AUC, KS and observed bad rate remain unavailable until the 12-month outcome window matures. Leading indicators are used in the interim.")
 if selected_module == "IFRS 9 ECL":
-    stages=pd.DataFrame(payload["v6_ifrs9_stage_summary"]); scenarios=pd.DataFrame(payload["v6_macro_scenarios"])
-    e1,e2,e3=st.columns(3);e1.metric("Weighted ECL",f'VND {stages.weighted_ecl.sum()/1e9:.2f}bn');e2.metric("Stage 2–3 share",f'{stages.loc[stages.stage!="Stage 1","accounts"].sum()/stages.accounts.sum():.1%}');e3.metric("Build status",payload["v6_summary"]["overall_status"])
-    st.dataframe(stages,use_container_width=True,hide_index=True);st.bar_chart(stages.set_index("stage")[["total_ead","weighted_ecl"]])
-    st.subheader("Macroeconomic scenarios");st.dataframe(scenarios,use_container_width=True,hide_index=True);st.bar_chart(scenarios.set_index("scenario")["total_ecl"])
-    st.subheader("LGD and EAD validation");st.json({"LGD":payload["v6_lgd_validation"],"EAD":payload["v6_ead_validation"]})
+    stages=pd.DataFrame(payload["v6_ifrs9_stage_summary"])
+    scenarios=pd.DataFrame(payload["v6_macro_scenarios"])
+    lgd=payload["v6_lgd_validation"]; ead=payload["v6_ead_validation"]
+    total_ead=stages.total_ead.sum(); total_ecl=stages.weighted_ecl.sum()
+    stage23_accounts=stages.loc[stages.stage!="Stage 1","accounts"].sum()
+    stage23_share=stage23_accounts/stages.accounts.sum()
+    coverage=total_ecl/total_ead
+    e1,e2,e3,e4,e5=st.columns(5)
+    e1.metric("Total EAD",f'VND {total_ead/1e9:.1f}B',f'{stages.accounts.sum():,.0f} accounts')
+    e2.metric("Weighted ECL",f'VND {total_ecl/1e9:.2f}B',f'{coverage:.1%} coverage')
+    e3.metric("Stage 2–3 share",f'{stage23_share:.1%}',f'{stage23_accounts:,.0f} accounts')
+    e4.metric("Model validation",f'{lgd["status"]} / {ead["status"]}',"LGD / EAD")
+    e5.metric("Build status",payload["v6_summary"]["overall_status"],"IFRS 9 control view")
+    st.markdown('<div class="section-title">ECL by impairment stage</div>',unsafe_allow_html=True)
+    sleft,sright=st.columns([1.3,1])
+    stage_view=stages.copy()
+    stage_view["Accounts"]=stage_view["accounts"].map(lambda x:f'{x:,.0f}')
+    stage_view["Mean PD"]=stage_view["mean_pd"].map(lambda x:f'{x:.1%}')
+    stage_view["Mean LGD"]=stage_view["mean_lgd"].map(lambda x:f'{x:.1%}')
+    stage_view["EAD (VND B)"]=stage_view["total_ead"].map(lambda x:f'{x/1e9:.2f}')
+    stage_view["ECL (VND B)"]=stage_view["weighted_ecl"].map(lambda x:f'{x/1e9:.2f}')
+    stage_view["Coverage"]=stage_view["coverage_ratio"].map(lambda x:f'{x:.1%}')
+    with sleft:
+        st.dataframe(stage_view[["stage","Accounts","Mean PD","Mean LGD","EAD (VND B)","ECL (VND B)","Coverage"]].rename(columns={"stage":"Stage"}),use_container_width=True,hide_index=True,height=205)
+    with sright:
+        stage_chart=stages.assign(**{"EAD (VND B)":stages.total_ead/1e9,"ECL (VND B)":stages.weighted_ecl/1e9}).set_index("stage")
+        st.bar_chart(stage_chart[["EAD (VND B)","ECL (VND B)"]],height=205)
+    st.markdown('<div class="section-title">Forward-looking macroeconomic scenarios</div>',unsafe_allow_html=True)
+    mleft,mright=st.columns([1.35,1])
+    scenario_view=scenarios.copy()
+    scenario_view["Weight"]=scenario_view.weight.map(lambda x:f'{x:.0%}')
+    scenario_view["GDP growth"]=scenario_view.gdp_growth.map(lambda x:f'{x:.1%}')
+    scenario_view["Unemployment"]=scenario_view.unemployment.map(lambda x:f'{x:.1%}')
+    scenario_view["Policy rate"]=scenario_view.policy_rate.map(lambda x:f'{x:.1%}')
+    scenario_view["Portfolio PD"]=scenario_view.portfolio_pd.map(lambda x:f'{x:.1%}')
+    scenario_view["Portfolio LGD"]=scenario_view.portfolio_lgd.map(lambda x:f'{x:.1%}')
+    scenario_view["ECL (VND B)"]=scenario_view.total_ecl.map(lambda x:f'{x/1e9:.2f}')
+    with mleft:
+        st.dataframe(scenario_view[["scenario","Weight","GDP growth","Unemployment","Policy rate","Portfolio PD","Portfolio LGD","ECL (VND B)"]].rename(columns={"scenario":"Scenario"}),use_container_width=True,hide_index=True,height=205)
+    with mright:
+        scenario_chart=scenarios.assign(**{"ECL (VND B)":scenarios.total_ecl/1e9}).set_index("scenario")
+        st.bar_chart(scenario_chart["ECL (VND B)"],height=205,color="#f59e0b")
+    st.markdown('<div class="section-title">LGD and EAD validation</div>',unsafe_allow_html=True)
+    v1,v2=st.columns(2)
+    with v1:
+        st.markdown('<div class="panel-title">Workout LGD proxy</div>',unsafe_allow_html=True)
+        l1,l2,l3,l4=st.columns(4)
+        l1.metric("Status",lgd["status"]); l2.metric("R²",f'{lgd["r2"]:.3f}'); l3.metric("MAE",f'{lgd["mae"]:.3f}'); l4.metric("Test rows",f'{lgd["test_rows"]:,}')
+        lgd_view=pd.DataFrame([[lgd["target"],f'{lgd["mean_observed"]:.2%}',f'{lgd["mean_predicted"]:.2%}',f'{abs(lgd["mean_observed"]-lgd["mean_predicted"]):.2%}']],columns=["Validation target","Observed","Predicted","Calibration gap"])
+        st.dataframe(lgd_view,use_container_width=True,hide_index=True)
+    with v2:
+        st.markdown('<div class="panel-title">EAD factor proxy</div>',unsafe_allow_html=True)
+        a1,a2,a3,a4=st.columns(4)
+        a1.metric("Status",ead["status"]); a2.metric("R²",f'{ead["r2"]:.3f}'); a3.metric("MAE",f'{ead["mae"]:.3f}'); a4.metric("Test rows",f'{ead["test_rows"]:,}')
+        ead_view=pd.DataFrame([[ead["target"],f'{ead["mean_observed"]:.2%}',f'{ead["mean_predicted"]:.2%}',f'{abs(ead["mean_observed"]-ead["mean_predicted"]):.2%}']],columns=["Validation target","Observed","Predicted","Calibration gap"])
+        st.dataframe(ead_view,use_container_width=True,hide_index=True)
+    with st.expander("Methodology and governance notes"):
+        st.markdown("""
+        - **Staging:** Stage 1 represents performing exposure; Stage 2 captures significant increase in credit risk; Stage 3 represents credit-impaired exposure.
+        - **Forward-looking ECL:** scenario outputs combine PD and LGD adjustments under Upside, Base and Downside conditions using approved probability weights.
+        - **Validation:** LGD is tested against discounted loss severity; EAD is tested against balance at default relative to current exposure.
+        - **Production control:** figures are portfolio-model outputs for governance testing and require Finance, Model Risk and Credit Committee approval before financial reporting use.
+        """)
 if selected_module == "Deployment controls":
     gates=pd.DataFrame(payload["v6_deployment_gates"]);incidents=pd.DataFrame(payload["v6_incidents"]);rollback=pd.DataFrame(payload["v6_rollback_drill"])
     d1,d2,d3=st.columns(3);d1.metric("Rollout status",payload["v6_summary"]["rollout_status"]);d2.metric("Rollback controls",f'{payload["v6_summary"]["rollback_controls_passed"]}/5 PASS');d3.metric("Open incidents",f'{(incidents.status=="OPEN").sum()}')
