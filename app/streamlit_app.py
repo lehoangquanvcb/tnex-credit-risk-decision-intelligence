@@ -1,5 +1,5 @@
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime, timezone
 import json, sys
 import joblib
 import pandas as pd
@@ -82,7 +82,7 @@ selected_label = st.sidebar.radio("Navigation",NAVIGATION,key="main_navigation",
 selected_module=selected_label.split("  ",1)[-1]
 selected_group=selected_module.title()
 st.sidebar.markdown("---")
-st.sidebar.caption("V14 • Single-level navigation")
+st.sidebar.caption("V15 • Production demo & control layer")
 
 PAGE_SUBTITLE = {
     "Executive overview":"Portfolio risk, product economics, model health and management actions",
@@ -99,64 +99,83 @@ PAGE_SUBTITLE = {
     "Governance & controls":"Model governance, overrides, findings and accountable actions",
     "Data governance":"Data quality controls and common business definitions"
 }
-st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • CONSUMER CREDIT RISK • V14</div><h1>{selected_group}</h1><p>{PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • CONSUMER CREDIT RISK • V15</div><h1>{selected_group}</h1><p>{PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
 
 def kpi_card(column, icon, label, value, note, tone="good"):
     column.markdown(f'<div class="kpi-card"><div class="kpi-icon">{icon}</div><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-delta {tone}">{note}</div></div>', unsafe_allow_html=True)
 
 if selected_module == "Executive overview":
-    s9=payload["v9_summary"]; v7=payload["v7_summary"]; rec=payload["v9_recommended_allocation"]
+    s9=payload["v9_summary"]
+    decisions=load_csv("tnex_decisions_v7.csv")
+    decisions["application_date"]=pd.to_datetime(decisions.application_date)
+    decisions["risk_band"]=pd.cut(decisions.decision_pd,[-1,.05,.10,.18,1],labels=["Low","Medium","High","Very High"])
+    min_date=decisions.application_date.min().date(); max_date=decisions.application_date.max().date()
+    if "overview_date" in st.session_state and not min_date<=st.session_state.overview_date<=max_date:
+        st.session_state.overview_date=max_date
+    def reset_overview_filters():
+        st.session_state.overview_date=max_date
+        st.session_state.overview_product="All"; st.session_state.overview_channel="All"
+        st.session_state.overview_decision="All"; st.session_state.overview_risk="All"
     with st.container(border=True):
         f1,f2,f3,f4,f5,f6=st.columns([1.05,1.15,1,1,1,0.55])
-        as_of=f1.date_input("As of date",date(2026,9,24),key="overview_date")
-        product_filter=f2.selectbox("Product",["All","CASH_LOAN","BNPL","BUSINESS_LOAN"],key="overview_product")
-        channel_filter=f3.selectbox("Channel",["All","Mobile","Partner","Branch"],key="overview_channel")
-        decision_filter=f4.selectbox("Decision",["All","APPROVE","REVIEW","DECLINE"],key="overview_decision")
+        as_of=f1.date_input("As of date",max_date,min_value=min_date,max_value=max_date,key="overview_date")
+        product_filter=f2.selectbox("Product",["All"]+sorted(decisions.product.unique().tolist()),key="overview_product")
+        channel_filter=f3.selectbox("Channel",["All"]+sorted(decisions.channel.unique().tolist()),key="overview_channel")
+        decision_filter=f4.selectbox("Decision",["All"]+sorted(decisions.decision.unique().tolist()),key="overview_decision")
         risk_filter=f5.selectbox("Risk band",["All","Low","Medium","High","Very High"],key="overview_risk")
-        f6.markdown("<br>",unsafe_allow_html=True); f6.button("↻ Clear",use_container_width=True,key="overview_clear")
+        f6.markdown("<br>",unsafe_allow_html=True); f6.button("↻ Clear",use_container_width=True,key="overview_clear",on_click=reset_overview_filters)
+    filtered=decisions[decisions.application_date.dt.date<=as_of].copy()
+    for column,value in [("product",product_filter),("channel",channel_filter),("decision",decision_filter),("risk_band",risk_filter)]:
+        if value!="All": filtered=filtered[filtered[column].astype(str)==value]
+    if filtered.empty:
+        st.error("No applications match the selected filters. Clear or broaden the selection.")
+        st.stop()
+    approved=filtered[filtered.decision=="APPROVE"]
+    exposure=filtered.requested_amount.sum()
+    expected_loss=(approved.decision_pd*.65*approved.approved_limit_vnd).sum()
     cards=st.columns(6)
-    kpi_card(cards[0],"₫","Portfolio capacity",f'{s9["portfolio_capacity_vnd"]/1e9:,.0f}B',"Recommended capacity")
-    kpi_card(cards[1],"✓","Approval rate",f'{v7["approval_rate"]:.1%}',"Digital lending portfolio")
-    kpi_card(cards[2],"◉","Expected credit loss",f'{s9["recommended_ecl_vnd"]/1e9:,.1f}B',"Within simulated appetite","warn")
-    kpi_card(cards[3],"↗","Portfolio RAROC",f'{s9["recommended_raroc"]:.1%}',"Risk-adjusted return")
-    kpi_card(cards[4],"⚡","P95 decision latency",f'{v7["p95_end_to_end_ms"]:.0f} ms',"Within digital SLA")
-    kpi_card(cards[5],"◆","Models passing",f'{s9["models_passing"]}/{s9["product_models"]}',"1 model requires review","warn")
+    kpi_card(cards[0],"▤","Applications",f'{len(filtered):,}',"Filtered population")
+    kpi_card(cards[1],"₫","Requested exposure",f'{exposure/1e9:,.1f}B',"VND application volume")
+    kpi_card(cards[2],"✓","Approval rate",f'{(filtered.decision=="APPROVE").mean():.1%}',"Filtered policy outcome")
+    kpi_card(cards[3],"◉","Mean decision PD",f'{filtered.decision_pd.mean():.1%}',"Post-product adjustment","warn")
+    kpi_card(cards[4],"△","Expected credit loss",f'{expected_loss/1e9:,.2f}B',"Approved exposure","warn")
+    kpi_card(cards[5],"⚡","P95 decision latency",f'{filtered.end_to_end_ms.quantile(.95):.0f} ms',"End-to-end SLA")
     st.markdown('<div class="section-title">Portfolio intelligence</div>',unsafe_allow_html=True)
     left,mid,right=st.columns([1.15,1.15,1])
     with left:
-        st.markdown('<div class="panel-title">Recommended portfolio allocation</div>',unsafe_allow_html=True)
-        allocation=[("Cash Loan",rec["cash_loan_share"]),("BNPL",rec["bnpl_share"]),("Business Loan",rec["business_loan_share"])]
+        st.markdown('<div class="panel-title">Filtered product allocation</div>',unsafe_allow_html=True)
+        shares=filtered.groupby("product").requested_amount.sum().div(max(exposure,1))
+        allocation=[(name.replace("_"," ").title(),share) for name,share in shares.items()]
         allocation_html="".join([f'<div class="allocation-row"><span>{name}</span><div class="allocation-track"><div class="allocation-fill" style="width:{share:.0%}"></div></div><b>{share:.0%}</b></div>' for name,share in allocation])
-        st.markdown(f'<div style="background:#10283f;border:1px solid #294c68;border-radius:10px;padding:18px 16px;height:270px">{allocation_html}<div style="color:#8eacc4;font-size:11px;margin-top:18px">Allocation maximizes simulated RAROC subject to concentration and risk-appetite constraints.</div></div>',unsafe_allow_html=True)
+        st.markdown(f'<div style="background:#10283f;border:1px solid #294c68;border-radius:10px;padding:18px 16px;height:270px">{allocation_html}<div style="color:#8eacc4;font-size:11px;margin-top:18px">Share of requested exposure after applying all dashboard filters.</div></div>',unsafe_allow_html=True)
     with mid:
         st.markdown('<div class="panel-title">Product model health</div>',unsafe_allow_html=True)
         models=pd.DataFrame(payload["v9_product_models"])
+        if product_filter!="All": models=models[models.product==product_filter]
         health=models[["product","oot_auc","oot_gini","oot_ks","calibration_gap","status","next_review"]].copy()
         health.columns=["Product","AUC","Gini","KS","Cal. gap","Status","Next review"]
         st.dataframe(health,use_container_width=True,hide_index=True,height=270)
     with right:
         st.markdown('<div class="panel-title">Key risk indicators</div>',unsafe_allow_html=True)
         indicators=pd.DataFrame([
-            ["Weighted bad rate",f'{rec["weighted_bad_rate"]:.2%}',"PASS"],
-            ["Fraud decline rate",f'{v7["fraud_decline_rate"]:.2%}',"MONITOR"],
+            ["Observed bad rate",f'{filtered.default_12m.mean():.2%}',"PASS" if filtered.default_12m.mean()<.15 else "WATCH"],
+            ["High-risk share",f'{filtered.risk_band.astype(str).isin(["High","Very High"]).mean():.2%}',"MONITOR"],
+            ["Fraud decline rate",f'{((filtered.fraud_score>.30)&(filtered.decision=="DECLINE")).mean():.2%}',"MONITOR"],
             ["Stage 2–3 share",f'{payload["v6_summary"]["stage_2_3_share"]:.2%}',"PASS"],
-            ["Open findings",str(s9["open_findings"]),"ACTION"],
-            ["Rollout",payload["v6_summary"]["rollout_status"],"CONTROLLED"]
+            ["Open findings",str(s9["open_findings"]),"ACTION"]
         ],columns=["Metric","Value","Status"])
         st.dataframe(indicators,use_container_width=True,hide_index=True,height=270)
     st.markdown('<div class="section-title">Performance, customer journey and controls</div>',unsafe_allow_html=True)
     p1,p2,p3=st.columns([1.1,1.15,1])
     with p1:
-        st.markdown('<div class="panel-title">Digital application funnel</div>',unsafe_allow_html=True)
-        funnel=pd.DataFrame(payload["v7_funnel"])
-        st.bar_chart(funnel.set_index("stage")["customers"],height=255,color="#22c1c3")
+        st.markdown('<div class="panel-title">Decision outcomes</div>',unsafe_allow_html=True)
+        st.bar_chart(filtered.decision.value_counts(),height=255,color="#22c1c3")
     with p2:
-        st.markdown('<div class="panel-title">Model and portfolio monitoring</div>',unsafe_allow_html=True)
-        monitoring=pd.DataFrame(payload["v6_delayed_monitoring"])
-        st.line_chart(monitoring.set_index("month")[["mean_pd","observed_bad_rate","score_psi"]],height=255)
+        st.markdown('<div class="panel-title">Risk-band distribution</div>',unsafe_allow_html=True)
+        st.bar_chart(filtered.risk_band.value_counts(sort=False),height=255,color="#f59e0b")
     with p3:
         st.markdown('<div class="panel-title">Product performance</div>',unsafe_allow_html=True)
-        performance=pd.DataFrame(payload["v7_product_performance"])[["product","applications","approval_rate","fraud_decline_rate","mean_decision_pd","p95_latency_ms"]]
+        performance=filtered.groupby("product").agg(applications=("application_id","count"),approval_rate=("decision",lambda x:(x=="APPROVE").mean()),mean_decision_pd=("decision_pd","mean"),p95_latency_ms=("end_to_end_ms",lambda x:x.quantile(.95))).reset_index()
         st.dataframe(performance,use_container_width=True,hide_index=True,height=255)
     st.markdown('<div class="section-title">Executive decisions and actions</div>',unsafe_allow_html=True)
     a1,a2=st.columns([1.35,1])
@@ -288,24 +307,68 @@ if selected_module == "MIS & risk indicators":
     st.download_button("Download MIS extract",monthly.to_csv(index=False).encode("utf-8"),"tnex_mis_monthly.csv","text/csv",key="download_mis")
 
 if selected_module == "Application scoring":
+    st.markdown('<div class="section-title">Applicant, product and policy inputs</div>',unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1:
-        age = st.number_input("Age", 20, 65, 35); income = st.number_input("Monthly income (VND)", 3_000_000, 500_000_000, 20_000_000, step=1_000_000)
-        employment_months = st.number_input("Employment months", 0, 480, 60); employment_type = st.selectbox("Employment type", ["Salaried", "Self-employed", "Contract"])
+        product=st.selectbox("TNEX product",["CASH_LOAN","BNPL","BUSINESS_LOAN"],key="score_product")
+        age = st.number_input("Age", 20, 65, 35,key="score_age"); income = st.number_input("Monthly income (VND)", 3_000_000, 500_000_000, 20_000_000, step=1_000_000,key="score_income")
+        employment_months = st.number_input("Employment months", 0, 480, 60,key="score_employment_months"); employment_type = st.selectbox("Employment type", ["Salaried", "Self-employed", "Contract"],key="score_employment_type")
     with c2:
-        bureau_score = st.number_input("Bureau score", 300, 850, 650); existing_dti = st.slider("Existing DTI", 0.0, 0.95, .35, .01)
-        inquiries_6m = st.number_input("Inquiries in 6 months", 0, 20, 1); home_ownership = st.selectbox("Home ownership", ["Owned", "Mortgage", "Rented", "Family"])
+        bureau_score = st.number_input("Bureau score", 300, 850, 650,key="score_bureau"); existing_dti = st.slider("Existing DTI", 0.0, 0.95, .35, .01,key="score_dti")
+        inquiries_6m = st.number_input("Inquiries in 6 months", 0, 20, 1,key="score_inquiries"); home_ownership = st.selectbox("Home ownership", ["Owned", "Mortgage", "Rented", "Family"],key="score_home")
+        identity_match=st.slider("Identity match score",0.0,1.0,.94,.01,key="score_identity")
     with c3:
-        requested_amount = st.number_input("Requested amount (VND)", 1_000_000, 2_000_000_000, 50_000_000, step=5_000_000)
-        tenor_months = st.selectbox("Tenor", [6, 9, 12, 18, 24, 36], index=2); channel = st.selectbox("Channel", ["Mobile", "Branch", "Partner"])
+        requested_amount = st.number_input("Requested amount (VND)", 1_000_000, 2_000_000_000, 50_000_000, step=5_000_000,key="score_amount")
+        tenor_months = st.selectbox("Tenor", [6, 9, 12, 18, 24, 36], index=2,key="score_tenor"); channel = st.selectbox("Channel", ["Mobile", "Branch", "Partner"],key="score_channel")
+        velocity=st.number_input("Applications in 24 hours",0,20,0,key="score_velocity")
     row = pd.DataFrame([[age,income,employment_months,bureau_score,existing_dti,requested_amount,tenor_months,inquiries_6m,employment_type,home_ownership,channel]], columns=FEATURES)
-    pd12 = float(model.predict_proba(row)[0,1]); score = int(score_from_pd([pd12])[0]); decision = assign_decision(pd12)
-    offer=pricing(pd12,income,requested_amount); decision=offer["decision"]
-    a,b,c,d = st.columns(4); a.metric("12-month PD", f"{pd12:.2%}"); b.metric("Credit score", score); c.metric("Decision", decision); d.metric("Expected loss",f'VND {offer["expected_loss"]:,.0f}')
-    st.write("**Point-based reason codes:** " + ", ".join(model.reason_codes(row)[0]))
+    pd12 = float(model.predict_proba(row)[0,1]); score = int(score_from_pd([pd12])[0])
+    config=pd.DataFrame(payload["v7_product_config"]).set_index("product").loc[product]
+    offer=pricing(pd12,income,requested_amount)
+    fraud_score=min(1.0,max(0.0,.55*(1-identity_match)+.035*velocity+.04*max(inquiries_6m-2,0)+(.08 if channel=="Partner" else 0)))
+    policy_reasons=[]
+    if fraud_score>config.fraud_max: policy_reasons.append("FRAUD_THRESHOLD_EXCEEDED")
+    if existing_dti>.65: policy_reasons.append("AFFORDABILITY_DTI_EXCEEDED")
+    if income<5_000_000: policy_reasons.append("MINIMUM_INCOME_NOT_MET")
+    if pd12>=config.review_pd_max: policy_reasons.append("PD_ABOVE_REVIEW_CUTOFF")
+    if "FRAUD_THRESHOLD_EXCEEDED" in policy_reasons or pd12>=config.review_pd_max: decision="DECLINE"
+    elif pd12<config.approve_pd_max and existing_dti<=.65 and income>=5_000_000: decision="APPROVE"
+    else: decision="REVIEW"
+    approved_limit=min(float(config.max_limit_vnd),float(offer["credit_limit"])) if decision=="APPROVE" else 0
+    expected_loss=pd12*.65*approved_limit
+    annual_rate=offer["interest_rate"] if offer["interest_rate"] is not None else 0
+    point_reasons=model.reason_codes(row)[0]
+    all_reasons=policy_reasons+point_reasons
+    st.markdown('<div class="section-title">Decision outcome</div>',unsafe_allow_html=True)
+    a,b,c,d,e,f = st.columns(6)
+    a.metric("Decision",decision); b.metric("12-month PD", f"{pd12:.2%}"); c.metric("Credit score",score)
+    d.metric("Fraud score",f'{fraud_score:.1%}'); e.metric("Approved limit",f'VND {approved_limit/1e6:,.1f}M'); f.metric("Expected loss",f'VND {expected_loss/1e6:,.2f}M')
+    st.write("**Decision reason codes:** " + "; ".join(all_reasons))
+    p1,p2,p3,p4=st.columns(4)
+    p1.metric("Risk band",offer["risk_band"]);p2.metric("Annual rate",f'{annual_rate:.1%}' if annual_rate else "N/A");p3.metric("Policy version",config.policy_version);p4.metric("Model version",meta["model_id"])
     detail=pd.DataFrame(model.points_detail(row)[0]).sort_values("score_points").head(5)
     st.dataframe(detail[["feature","bin","woe","score_points"]],use_container_width=True,hide_index=True)
-    st.info("Policy cut-offs: APPROVE < 8% PD • REVIEW 8%–18% • DECLINE ≥ 18%")
+    st.info(f'Product policy: APPROVE below {config.approve_pd_max:.0%} PD • REVIEW below {config.review_pd_max:.0%} PD • Fraud maximum {config.fraud_max:.0%}')
+    audit_record={
+        "timestamp_utc":datetime.now(timezone.utc).isoformat(timespec="seconds"),"application_id":f'DEMO-{datetime.now():%Y%m%d%H%M%S}',
+        "product":product,"channel":channel,"model_version":meta["model_id"],"policy_version":config.policy_version,
+        "pd_12m":pd12,"credit_score":score,"fraud_score":fraud_score,"requested_amount_vnd":requested_amount,
+        "approved_limit_vnd":approved_limit,"decision":decision,"override_status":"NO_OVERRIDE","reason_codes":"; ".join(all_reasons)
+    }
+    if "decision_audit" not in st.session_state: st.session_state.decision_audit=[]
+    b1,b2=st.columns([1,4])
+    if b1.button("Record decision",type="primary",use_container_width=True,key="record_decision"):
+        st.session_state.decision_audit.insert(0,audit_record)
+        st.success(f'Decision {audit_record["application_id"]} recorded in the session audit trail.')
+    memo=pd.DataFrame([audit_record]).to_csv(index=False).encode("utf-8")
+    b2.download_button("Download decision memo",memo,f'{audit_record["application_id"]}_decision_memo.csv',"text/csv",use_container_width=True,key="download_decision_memo")
+    st.markdown('<div class="section-title">Production audit trail</div>',unsafe_allow_html=True)
+    if st.session_state.decision_audit:
+        audit_df=pd.DataFrame(st.session_state.decision_audit)
+        st.dataframe(audit_df,use_container_width=True,hide_index=True,height=260)
+        st.download_button("Download audit trail",audit_df.to_csv(index=False).encode("utf-8"),"tnex_decision_audit_trail.csv","text/csv",key="download_audit")
+    else:
+        st.caption("Record a decision to create an auditable session log with model version, policy version, outcome and reason codes.")
 if selected_module == "Model validation":
     st.markdown('<div class="section-title">Independent model validation</div>',unsafe_allow_html=True)
     cols = st.columns(5)
@@ -345,10 +408,36 @@ if selected_module == "Model validation":
 if selected_module == "Production & decisioning":
     st.markdown('<div class="section-title">Production model monitoring</div>',unsafe_allow_html=True)
     mon=pd.DataFrame(payload["v6_delayed_monitoring"])
-    m1,m2,m3,m4=st.columns(4);m1.metric("Applications",f'{mon.applications.sum():,.0f}');m2.metric("Mature months",f'{(mon.label_maturity_rate>=.8).sum()} / {len(mon)}');m3.metric("Latest PSI",f'{mon.iloc[-1].score_psi:.3f}');m4.metric("Latest status",mon.iloc[-1].status)
-    st.line_chart(mon.set_index("month")[["mean_pd","observed_bad_rate","score_psi"]])
-    st.dataframe(mon,use_container_width=True,hide_index=True)
-    st.caption("AUC, KS and observed bad rate remain unavailable until the 12-month outcome window matures. Leading indicators are used in the interim.")
+    mature=mon[mon.label_maturity_rate>=.8].copy(); latest=mon.iloc[-1]; latest_mature=mature.iloc[-1]
+    baseline_pd=mon.head(6).mean_pd.mean(); pd_shift=abs(latest.mean_pd/baseline_pd-1)
+    prod_decisions=load_csv("production_monitoring_sample.csv")
+    approval_by_month=prod_decisions.groupby("month").decision.apply(lambda x:(x=="APPROVE").mean())
+    approval_shift=abs(approval_by_month.iloc[-1]-approval_by_month.head(6).mean())
+    def traffic_light(value,pass_rule,watch_rule):
+        if pass_rule(value): return "PASS"
+        if watch_rule(value): return "WATCH"
+        return "BREACH"
+    alerts=pd.DataFrame([
+        ["Score PSI",latest.score_psi,"< 0.10","0.10–0.25",traffic_light(latest.score_psi,lambda x:x<.10,lambda x:x<.25),"Continue" if latest.score_psi<.10 else "Investigate drift"],
+        ["Mean PD shift",pd_shift,"< 10%","10%–20%",traffic_light(pd_shift,lambda x:x<.10,lambda x:x<.20),"Continue" if pd_shift<.10 else "Review population mix"],
+        ["Approval-rate shift",approval_shift,"< 5pp","5–10pp",traffic_light(approval_shift,lambda x:x<.05,lambda x:x<.10),"Continue" if approval_shift<.05 else "Review policy and channel mix"],
+        ["Mature-window AUC",latest_mature.auc_when_mature,"≥ 0.68","0.65–0.68",traffic_light(latest_mature.auc_when_mature,lambda x:x>=.68,lambda x:x>=.65),"Continue" if latest_mature.auc_when_mature>=.68 else "Challenge or recalibrate"],
+        ["Mature-window KS",latest_mature.ks_when_mature,"≥ 0.30","0.25–0.30",traffic_light(latest_mature.ks_when_mature,lambda x:x>=.30,lambda x:x>=.25),"Continue" if latest_mature.ks_when_mature>=.30 else "Investigate discrimination"],
+        ["Calibration gap",abs(latest_mature.calibration_gap_when_mature),"≤ 2%","2%–3%",traffic_light(abs(latest_mature.calibration_gap_when_mature),lambda x:x<=.02,lambda x:x<=.03),"Continue" if abs(latest_mature.calibration_gap_when_mature)<=.02 else "Recalibrate"]
+    ],columns=["Indicator","Current value","Pass threshold","Watch range","Status","Required action"])
+    overall="BREACH" if (alerts.Status=="BREACH").any() else ("WATCH" if (alerts.Status=="WATCH").any() else "PASS")
+    m1,m2,m3,m4,m5=st.columns(5)
+    m1.metric("Applications",f'{mon.applications.sum():,.0f}');m2.metric("Mature months",f'{len(mature)} / {len(mon)}')
+    m3.metric("Latest PSI",f'{latest.score_psi:.3f}');m4.metric("Latest mature AUC",f'{latest_mature.auc_when_mature:.3f}');m5.metric("Control status",overall)
+    if overall=="BREACH": st.error("One or more monitoring limits have been breached. Initiate investigation and consider rollback or recalibration.")
+    elif overall=="WATCH": st.warning("Monitoring remains within hard limits, but one or more indicators require enhanced surveillance.")
+    else: st.success("All defined production monitoring indicators are within approved thresholds.")
+    st.markdown('<div class="section-title">Threshold-based monitoring alerts</div>',unsafe_allow_html=True)
+    st.dataframe(alerts,use_container_width=True,hide_index=True,height=250)
+    c1,c2=st.columns([1.2,1])
+    with c1: st.line_chart(mon.set_index("month")[["mean_pd","observed_bad_rate","score_psi"]],height=300)
+    with c2: st.dataframe(mon[["month","applications","label_maturity_rate","score_psi","status","action"]],use_container_width=True,hide_index=True,height=300)
+    st.caption("Outcome-based AUC, KS and calibration controls use the latest mature observation window. Leading indicators are used while newer cohorts season.")
 if selected_module == "IFRS 9 ECL":
     stages=pd.DataFrame(payload["v6_ifrs9_stage_summary"])
     scenarios=pd.DataFrame(payload["v6_macro_scenarios"])
