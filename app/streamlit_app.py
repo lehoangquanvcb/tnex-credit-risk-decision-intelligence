@@ -377,11 +377,72 @@ if selected_module == "Overrides":
     queue=pd.read_csv(ROOT/"data/manual_review_queue.csv"); st.dataframe(queue[["application_id","pd_12m","decision","override_flag","override_direction","override_reason","final_decision","authority"]].head(200),use_container_width=True,hide_index=True)
     st.metric("Override rate",f'{queue.override_flag.mean():.1%}')
 if selected_module == "Governance":
-    gov=pd.DataFrame(payload["governance"]); st.dataframe(gov,use_container_width=True,hide_index=True); st.info("Committee approval and production release remain pending in this portfolio simulation.")
-    st.subheader("Model registry")
-    registry=json.loads((ROOT/"artifacts/model_registry.json").read_text()); st.json(registry)
-    st.subheader("Active credit policy")
-    st.json(payload["policy"])
+    gov=pd.DataFrame(payload["governance"])
+    registry=json.loads((ROOT/"artifacts/model_registry.json").read_text())
+    policy=payload["policy"]
+    complete=int((gov.status=="COMPLETE").sum())
+    ready=int((gov.status=="READY").sum())
+    pending=int((gov.status=="PENDING").sum())
+    active_version=registry["production"]
+    active_record=next((v for v in registry["versions"] if v["version"]==active_version),registry["versions"][-1])
+    g1,g2,g3,g4,g5=st.columns(5)
+    g1.metric("Governance gates",len(gov),f"{complete} complete")
+    g2.metric("Release readiness",f"{complete+ready}/{len(gov)}",f"{pending} pending")
+    g3.metric("Active model",active_version,active_record["status"])
+    g4.metric("Validation",active_record["metrics"].get("validation_status","N/A"),f'AUC {active_record["metrics"].get("auc",active_record["metrics"].get("oot_auc",0)):.3f}')
+    g5.metric("Policy version",policy["policy_version"],f'Effective {policy["effective_date"]}')
+    if pending:
+        st.warning("Decision required: Model Risk Committee approval and Technology production release remain pending. UAT and monitoring controls are ready.")
+    left,right=st.columns([1.35,1])
+    with left:
+        st.markdown('<div class="section-title">Governance approval path</div>',unsafe_allow_html=True)
+        gov_view=gov.rename(columns={"stage":"Gate","owner":"Accountable owner","status":"Status","evidence":"Required evidence"})
+        st.dataframe(gov_view,use_container_width=True,hide_index=True,height=330)
+    with right:
+        st.markdown('<div class="section-title">Approval controls</div>',unsafe_allow_html=True)
+        controls=pd.DataFrame([
+            ["Independent validation",active_record["metrics"].get("validation_status","N/A"),"Model Risk"],
+            ["UAT and reason-code tests",str(gov.loc[gov.stage.str.contains("UAT"),"status"].iloc[0]),"Credit Operations"],
+            ["Committee approval",str(gov.loc[gov.stage.str.contains("Committee"),"status"].iloc[0]),"Model Risk Committee"],
+            ["Production release",str(gov.loc[gov.stage.str.contains("Production"),"status"].iloc[0]),"Technology"],
+            ["Monitoring framework",str(gov.loc[gov.stage.str.contains("Monitoring"),"status"].iloc[0]),"Model Owner"]
+        ],columns=["Control","Status","Owner"])
+        st.dataframe(controls,use_container_width=True,hide_index=True,height=330)
+    st.markdown('<div class="section-title">Model inventory and active credit policy</div>',unsafe_allow_html=True)
+    mcol,pcol=st.columns([1.4,1])
+    with mcol:
+        registry_rows=[]
+        for version in registry["versions"]:
+            metrics=version.get("metrics",{})
+            auc=metrics.get("auc",metrics.get("oot_auc"))
+            registry_rows.append({
+                "Model version":version["version"],
+                "Lifecycle":version["status"],
+                "AUC":auc,
+                "Gini":metrics.get("gini",metrics.get("test_gini")),
+                "KS":metrics.get("ks",metrics.get("test_ks")),
+                "Validation":metrics.get("validation_status","N/A"),
+                "Production":"YES" if version["version"]==active_version else "NO"
+            })
+        st.dataframe(pd.DataFrame(registry_rows),use_container_width=True,hide_index=True,height=245)
+    with pcol:
+        policy_view=pd.DataFrame([
+            ["Approve cut-off",f'{policy["approve_pd_max"]:.0%} PD'],
+            ["Manual review cut-off",f'{policy["review_pd_max"]:.0%} PD'],
+            ["Maximum DTI",f'{policy["maximum_dti"]:.0%}'],
+            ["Minimum monthly income",f'VND {policy["minimum_income"]:,.0f}'],
+            ["Maximum tenor",f'{policy["maximum_tenor"]} months'],
+            ["LGD assumption",f'{policy["lgd"]:.0%}']
+        ],columns=["Policy parameter","Approved value"])
+        st.dataframe(policy_view,use_container_width=True,hide_index=True,height=245)
+    with st.expander("Technical evidence and registry details"):
+        t1,t2=st.columns(2)
+        with t1:
+            st.caption("Model artifact and metric registry")
+            st.json(registry,expanded=False)
+        with t2:
+            st.caption("Machine-readable credit policy")
+            st.json(policy,expanded=False)
 if selected_module == "Action tracker":
     incidents=load_csv("model_incidents_v6.csv"); findings=pd.DataFrame(payload["v9_validation_findings"])
     actions=pd.concat([
