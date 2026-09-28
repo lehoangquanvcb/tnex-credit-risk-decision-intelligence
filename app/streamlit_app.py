@@ -119,7 +119,7 @@ if selected_module == "Executive overview":
     with st.container(border=True):
         f1,f2,f3,f4,f5,f6=st.columns([1.05,1.15,1,1,1,0.55])
         as_of=f1.date_input("As of date",max_date,min_value=min_date,max_value=max_date,key="overview_date")
-        product_filter=f2.selectbox("Product",["All"]+sorted(decisions.product.unique().tolist()),key="overview_product")
+        product_filter=f2.selectbox("Product",["All"]+sorted(decisions["product"].unique().tolist()),key="overview_product")
         channel_filter=f3.selectbox("Channel",["All"]+sorted(decisions.channel.unique().tolist()),key="overview_channel")
         decision_filter=f4.selectbox("Decision",["All"]+sorted(decisions.decision.unique().tolist()),key="overview_decision")
         risk_filter=f5.selectbox("Risk band",["All","Low","Medium","High","Very High"],key="overview_risk")
@@ -151,7 +151,7 @@ if selected_module == "Executive overview":
     with mid:
         st.markdown('<div class="panel-title">Product model health</div>',unsafe_allow_html=True)
         models=pd.DataFrame(payload["v9_product_models"])
-        if product_filter!="All": models=models[models.product==product_filter]
+        if product_filter!="All": models=models[models["product"]==product_filter]
         health=models[["product","oot_auc","oot_gini","oot_ks","calibration_gap","status","next_review"]].copy()
         health.columns=["Product","AUC","Gini","KS","Cal. gap","Status","Next review"]
         st.dataframe(health,use_container_width=True,hide_index=True,height=270)
