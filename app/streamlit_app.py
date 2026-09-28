@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import date
 import json, sys
 import joblib
 import pandas as pd
@@ -10,17 +11,141 @@ from src.modeling import FEATURES, assign_decision, score_from_pd
 from src.v4_platform import pricing
 from src.v8_digital_lending_os import live_decision
 
-st.set_page_config(page_title="TNEX-aligned Digital Lending Decisioning", page_icon="💳", layout="wide")
-st.title("TNEX-aligned Credit Risk & Decision Intelligence — V9")
-st.caption("Product model pipelines • Portfolio risk appetite • Model governance • Customer outcomes • Risk committee reporting")
+st.set_page_config(page_title="TNEX Retail Credit Risk Workbench", page_icon="💳", layout="wide", initial_sidebar_state="expanded")
+st.markdown("""
+<style>
+:root { --tnex-blue:#0b2239; --tnex-panel:#102c46; --tnex-border:#294c68; --tnex-cyan:#19b5c5; --tnex-green:#22c55e; --tnex-amber:#f59e0b; --tnex-red:#ef4444; }
+.stApp { background:linear-gradient(180deg,#071a2b 0%,#0a2136 100%); color:#f8fafc; }
+[data-testid="stSidebar"] { background:#071c2f; border-right:1px solid #294c68; }
+[data-testid="stSidebar"] .block-container { padding-top:1.2rem; }
+.block-container { max-width:1800px; padding-top:1.25rem; padding-bottom:2rem; }
+h1,h2,h3 { letter-spacing:-.02em; color:#f8fafc !important; }
+[data-testid="stMetric"] { background:#102c46; border:1px solid #294c68; border-radius:12px; padding:15px 17px; min-height:112px; box-shadow:0 5px 18px rgba(0,0,0,.14); }
+[data-testid="stMetricLabel"] { color:#b7c8d8; font-weight:700; }
+[data-testid="stMetricValue"] { color:#fff; font-weight:800; }
+[data-testid="stMetricDelta"] { font-weight:700; }
+[data-testid="stDataFrame"], [data-testid="stTable"] { border:1px solid #294c68; border-radius:10px; overflow:hidden; }
+[data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] { border-color:#294c68 !important; border-radius:12px !important; }
+.stAlert { border-radius:10px; }
+div[data-baseweb="select"] > div, div[data-baseweb="input"] > div { background:#102c46; border-color:#294c68; }
+[data-testid="stSidebar"] [role="radiogroup"] label { padding:.42rem .55rem; margin:.09rem 0; border-radius:8px; border:1px solid transparent; }
+[data-testid="stSidebar"] [role="radiogroup"] label:hover { background:#123653; border-color:#294c68; }
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) { background:linear-gradient(90deg,#0969da,#0ea5a8); border-color:#38bdf8; font-weight:800; }
+.tnex-brand { text-align:center; padding:8px 4px 18px; border-bottom:1px solid #294c68; margin-bottom:12px; }
+.tnex-logo { width:48px; height:48px; border-radius:14px; display:inline-flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#00b5ad,#2563eb); font-size:25px; box-shadow:0 8px 20px rgba(0,181,173,.25); }
+.tnex-brand h2 { font-size:18px; margin:9px 0 1px; }
+.tnex-brand p { color:#8eacc4; font-size:11px; margin:0; }
+.hero { background:linear-gradient(115deg,#103b5a 0%,#0d3552 55%,#075d67 100%); border:1px solid #34708b; border-radius:15px; padding:18px 22px; margin-bottom:14px; box-shadow:0 9px 28px rgba(0,0,0,.18); }
+.hero-kicker { color:#65dce5; font-size:11px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+.hero h1 { margin:3px 0 3px; font-size:29px; }
+.hero p { margin:0; color:#c3d6e5; font-size:13px; }
+.section-title { font-size:16px; font-weight:800; margin:15px 0 8px; color:#f8fafc; }
+.kpi-card { background:linear-gradient(145deg,#102f4b,#10283f); border:1px solid #315572; border-radius:12px; padding:14px 14px 12px; min-height:118px; box-shadow:0 5px 18px rgba(0,0,0,.15); }
+.kpi-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#164e72; font-size:16px; margin-bottom:8px; }
+.kpi-label { color:#a9bfd0; font-size:11px; font-weight:700; min-height:27px; }
+.kpi-value { color:#fff; font-size:23px; line-height:1.1; font-weight:850; margin:4px 0; }
+.kpi-delta { font-size:10px; font-weight:700; color:#50df8a; }
+.kpi-delta.warn { color:#fbbf24; } .kpi-delta.bad { color:#ff6b6b; }
+.panel-title { color:#f8fafc; font-size:14px; font-weight:800; margin-bottom:7px; }
+.status-pill { display:inline-block; border-radius:999px; padding:3px 9px; font-size:10px; font-weight:800; background:#164e3a; color:#75f0a5; }
+@media (max-width:900px) { .hero h1{font-size:22px}.kpi-value{font-size:19px}.block-container{padding-left:.8rem;padding-right:.8rem} }
+</style>
+""", unsafe_allow_html=True)
 model = joblib.load(ROOT / "artifacts/retail_woe_scorecard_v4.joblib")
 meta = json.loads((ROOT / "artifacts/model_metadata_v4.json").read_text())
 payload=json.loads((ROOT/"reports/validation_payload.json").read_text())
 
-MODULES = ["Application scoring","Model validation","Strategy simulator","Profitability","Stress testing","Walk-forward","Production monitoring","IFRS 9 ECL","Deployment controls","Fairness","Behavioural EWS","Overrides","Governance","TNEX products","Real-time decisioning","Digital funnel","Lifecycle controls","TNEX V8","TNEX V9"]
-st.sidebar.title("TNEX Credit Risk")
-st.sidebar.caption("Decision Intelligence Platform — V9")
-selected_module = st.sidebar.radio("Navigation", MODULES, key="main_navigation")
+NAVIGATION = {
+    "🏠  Executive overview":"Executive overview",
+    "◉  Application scoring":"Application scoring", "◫  Model validation":"Model validation",
+    "⌁  Strategy simulator":"Strategy simulator", "₫  Profitability":"Profitability",
+    "△  Stress testing":"Stress testing", "↗  Walk-forward":"Walk-forward",
+    "◌  Production monitoring":"Production monitoring", "▦  IFRS 9 ECL":"IFRS 9 ECL",
+    "✓  Deployment controls":"Deployment controls", "⚖  Fairness":"Fairness",
+    "⚠  Behavioural EWS":"Behavioural EWS", "⇄  Overrides":"Overrides",
+    "◇  Governance":"Governance", "▣  TNEX products":"TNEX products",
+    "⚡  Real-time decisioning":"Real-time decisioning", "▽  Digital funnel":"Digital funnel",
+    "⟳  Lifecycle controls":"Lifecycle controls", "◈  TNEX V8":"TNEX V8", "◆  TNEX V9":"TNEX V9"
+}
+st.sidebar.markdown('<div class="tnex-brand"><div class="tnex-logo">💳</div><h2>TNEX CREDIT RISK</h2><p>Retail Decision Intelligence Workbench</p></div>', unsafe_allow_html=True)
+st.sidebar.caption("NAVIGATION")
+selected_label = st.sidebar.radio("Navigation", list(NAVIGATION), key="main_navigation", label_visibility="collapsed")
+selected_module = NAVIGATION[selected_label]
+st.sidebar.markdown("---")
+st.sidebar.caption("V10 • Model risk controlled • Simulation environment")
+
+PAGE_SUBTITLE = {
+    "Executive overview":"Portfolio risk, product economics, model health and management actions",
+    "Application scoring":"Applicant-level PD, score, affordability and explainable decisioning",
+    "Model validation":"Independent performance, calibration, stability and reconstruction controls",
+    "Strategy simulator":"Optimize approval, credit loss and risk-adjusted profitability",
+    "Profitability":"Risk-based pricing, expected loss and RAROC by risk band",
+    "Stress testing":"Portfolio resilience under macroeconomic deterioration",
+    "Walk-forward":"Time-based validation and champion–challenger evidence",
+    "Production monitoring":"Drift, outcome maturity and production performance surveillance",
+    "IFRS 9 ECL":"Staging, scenario-weighted ECL and LGD/EAD validation",
+    "Deployment controls":"Shadow, canary, incident and rollback governance",
+    "Fairness":"Customer outcome and disparate-impact monitoring",
+    "Behavioural EWS":"Behavioural risk signals and early-warning segmentation",
+    "Overrides":"Manual review, authority and decision override controls",
+    "Governance":"Model inventory, ownership, policy and approval evidence",
+    "TNEX products":"Product policy and performance across digital lending products",
+    "Real-time decisioning":"Latency, alternative-data governance and decision controls",
+    "Digital funnel":"Customer journey conversion and decision drop-off",
+    "Lifecycle controls":"Repeat lending, payments and collections safeguards",
+    "TNEX V8":"Digital lending operating system and live-decision simulation",
+    "TNEX V9":"Product models, portfolio risk appetite and committee pack"
+}
+st.markdown(f'<div class="hero"><div class="hero-kicker">TNEX • RETAIL CREDIT RISK • V10</div><h1>{selected_module}</h1><p>{PAGE_SUBTITLE[selected_module]}</p></div>', unsafe_allow_html=True)
+
+def kpi_card(column, icon, label, value, note, tone="good"):
+    column.markdown(f'<div class="kpi-card"><div class="kpi-icon">{icon}</div><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div><div class="kpi-delta {tone}">{note}</div></div>', unsafe_allow_html=True)
+
+if selected_module == "Executive overview":
+    s9=payload["v9_summary"]; v7=payload["v7_summary"]; rec=payload["v9_recommended_allocation"]
+    with st.container(border=True):
+        f1,f2,f3,f4,f5,f6=st.columns([1.05,1.15,1,1,1,0.55])
+        as_of=f1.date_input("As of date",date(2026,9,24),key="overview_date")
+        product_filter=f2.selectbox("Product",["All","CASH_LOAN","BNPL","BUSINESS_LOAN"],key="overview_product")
+        channel_filter=f3.selectbox("Channel",["All","Mobile","Partner","Branch"],key="overview_channel")
+        decision_filter=f4.selectbox("Decision",["All","APPROVE","REVIEW","DECLINE"],key="overview_decision")
+        risk_filter=f5.selectbox("Risk band",["All","Low","Medium","High","Very High"],key="overview_risk")
+        f6.markdown("<br>",unsafe_allow_html=True); f6.button("↻ Clear",use_container_width=True,key="overview_clear")
+    cards=st.columns(6)
+    kpi_card(cards[0],"₫","Portfolio capacity",f'{s9["portfolio_capacity_vnd"]/1e9:,.0f}B',"Recommended capacity")
+    kpi_card(cards[1],"✓","Approval rate",f'{v7["approval_rate"]:.1%}',"Digital lending portfolio")
+    kpi_card(cards[2],"◉","Expected credit loss",f'{s9["recommended_ecl_vnd"]/1e9:,.1f}B',"Within simulated appetite","warn")
+    kpi_card(cards[3],"↗","Portfolio RAROC",f'{s9["recommended_raroc"]:.1%}',"Risk-adjusted return")
+    kpi_card(cards[4],"⚡","P95 decision latency",f'{v7["p95_end_to_end_ms"]:.0f} ms',"Within digital SLA")
+    kpi_card(cards[5],"◆","Models passing",f'{s9["models_passing"]}/{s9["product_models"]}',"1 model requires review","warn")
+    st.markdown('<div class="section-title">Portfolio intelligence</div>',unsafe_allow_html=True)
+    left,mid,right=st.columns([1.15,1.15,1])
+    with left:
+        st.markdown('<div class="panel-title">Recommended portfolio allocation</div>',unsafe_allow_html=True)
+        allocation=pd.DataFrame({"Product":["Cash Loan","BNPL","Business Loan"],"Share":[rec["cash_loan_share"],rec["bnpl_share"],rec["business_loan_share"]]}).set_index("Product")
+        st.bar_chart(allocation,height=270,color="#19b5c5")
+    with mid:
+        st.markdown('<div class="panel-title">Product model health</div>',unsafe_allow_html=True)
+        models=pd.DataFrame(payload["v9_product_models"])
+        st.bar_chart(models.set_index("product")[["oot_auc","oot_ks"]],height=270)
+    with right:
+        st.markdown('<div class="panel-title">Key risk indicators</div>',unsafe_allow_html=True)
+        indicators=pd.DataFrame([
+            ["Weighted bad rate",f'{rec["weighted_bad_rate"]:.2%}',"PASS"],
+            ["Fraud decline rate",f'{v7["fraud_decline_rate"]:.2%}',"MONITOR"],
+            ["Stage 2–3 share",f'{payload["v6_summary"]["stage_2_3_share"]:.2%}',"PASS"],
+            ["Open findings",str(s9["open_findings"]),"ACTION"],
+            ["Rollout",payload["v6_summary"]["rollout_status"],"CONTROLLED"]
+        ],columns=["Metric","Value","Status"])
+        st.dataframe(indicators,use_container_width=True,hide_index=True,height=270)
+    st.markdown('<div class="section-title">Executive decisions and actions</div>',unsafe_allow_html=True)
+    a1,a2=st.columns([1.35,1])
+    with a1:
+        st.dataframe(pd.DataFrame(payload["v9_committee_pack"]),use_container_width=True,hide_index=True)
+    with a2:
+        st.warning("**Business Loan model:** retain REVIEW status until OOT sample and discriminatory power meet production thresholds.")
+        st.info("**Risk appetite:** deploy the recommended product allocation subject to committee approval and live-data validation.")
+        st.success("**Deployment:** rollback controls passed; maintain staged rollout and weekly drift monitoring.")
 
 if selected_module == "Application scoring":
     c1, c2, c3 = st.columns(3)
